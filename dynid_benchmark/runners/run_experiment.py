@@ -37,7 +37,7 @@ def main():
     ap.add_argument("--config", required=True, help="Path to YAML")
     ap.add_argument("--outdir", default="runs", help="Output directory")
     ap.add_argument(
-        "--models", default="sindy_stlsq,zero", help="Comma-separated model keys"
+        "--models", default="pysindy,zero", help="Comma-separated model keys"
     )
     ap.add_argument(
         "--time", default=None, help="Override total simulation time (seconds)"

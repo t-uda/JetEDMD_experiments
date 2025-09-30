@@ -6,6 +6,16 @@ from dynid_benchmark.models.sindy_pi import SINDyPI
 from dynid_benchmark.models.sindy_implicit import ImplicitSINDy
 from dynid_benchmark.models.edmd import EDMD
 
+try:  # pragma: no cover - optional dependency guard
+    from dynid_benchmark.models import pysindy_adapter as pysindy_mod
+
+    _PYSINDY_OK = pysindy_mod._PYSINDY_OK
+    _PYSINDY_PI_OK = getattr(pysindy_mod, "_CVXPY_OK", False)
+except Exception:  # pragma: no cover - fallback when pysindy missing
+    pysindy_mod = None  # type: ignore
+    _PYSINDY_OK = False
+    _PYSINDY_PI_OK = False
+
 
 def linear_trajectory(decay=-1.0, t_end=2.0, n=201, dims=1):
     t = np.linspace(0.0, t_end, n)
@@ -89,3 +99,27 @@ def test_sindy_pi_requires_sufficient_window_samples():
     model = SINDyPI(window_len=5)
     with pytest.raises(ValueError):
         model.fit(t, y)
+
+
+@pytest.mark.skipif(not _PYSINDY_OK, reason="PySINDy dependency not installed")
+def test_pysindy_adapter_matches_linear_rollout():
+    t, y = linear_trajectory(dims=1)
+    model = pysindy_mod.PySINDyModel(poly_order=1, optimizer_kwargs={"threshold": 1e-3})
+    model.fit(t, y)
+    y_hat = model.rollout(t, y[0])
+    err = relative_l2(y_hat, y)
+    assert np.all(np.isfinite(y_hat))
+    assert err < 5e-2
+
+
+@pytest.mark.skipif(
+    not (_PYSINDY_OK and _PYSINDY_PI_OK),
+    reason="PySINDy-PI (cvxpy) dependency not installed",
+)
+@pytest.mark.xfail(reason="PySINDy-PI (1.x) simulateが上流ライブラリで不安定", strict=False)
+def test_pysindy_pi_adapter_runs_without_nan():
+    t, y = linear_trajectory(dims=1)
+    model = pysindy_mod.PySINDyPIModel(poly_order=1, optimizer_kwargs={"max_iter": 10})
+    model.fit(t, y)
+    y_hat = model.rollout(t, y[0])
+    assert np.all(np.isfinite(y_hat))

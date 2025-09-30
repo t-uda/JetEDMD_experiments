@@ -13,6 +13,7 @@ _DEFAULT_MODEL_MODULES = (
     "sindy_pi",
     "sindy_implicit",
     "neural_ode_torch",
+    "pysindy_adapter",
 )
 
 _LOADED = False

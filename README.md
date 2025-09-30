@@ -6,7 +6,7 @@
 - A1〜E4 の系列（ODE / SDE / PDE / ハイブリッド）をカバーする代表ベンチマークを同梱。
 - `exp/` 配下の YAML で「データ生成 → 観測化 → 学習 → 評価 → 図出力」までを一括実行。
 - `dynid_benchmark.models.register_model` による軽量なプラグイン API で手法を追加可能。
-- 実行環境は Poetry で管理し、依存関係は最小限（`numpy`, `pyyaml`, `matplotlib`）。
+- 実行環境は Poetry で管理し、依存関係は `numpy`, `pyyaml`, `matplotlib` に加え外部ライブラリ **PySINDy** を標準採用（SINDy-PI を使う場合は別途 `cvxpy` が必要）。
 
 ## クイックスタート
 0. 必要要件：Python 3.10 以上、Poetry がインストール済みであること。
@@ -17,12 +17,12 @@ poetry install
 poetry run pytest -q
 ```
 
-2. 実験の起動例（A1 κ スイープ、SINDy + ベースライン Zero モデル）：
+2. 実験の起動例（A1 κ スイープ、PySINDy + ベースライン Zero モデル）：
 
 ```bash
 poetry run python -m dynid_benchmark.runners.run_experiment \
   --config exp/A1_kappa_sweep.yaml \
-  --models sindy_stlsq,zero \
+  --models pysindy,zero \
   --outdir runs
 ```
 
@@ -61,6 +61,10 @@ class YourMethod(Model):
 ```
 
 登録後は `--models your_method` で実験ランナーから呼び出せます。実装例は `dynid_benchmark/models/`（SINDy-STLSQ, SINDy-PI, EDMD, Zero/MeanDerivative など）を参照してください。
+
+## 外部ライブラリ版 SINDy の利用
+
+`pysindy` パッケージをラップしたモデルを追加済みです。`pysindy`（標準 SINDy）が既定モデルとして登録され、`--models pysindy,zero` などで呼び出せます。積分形式の `pysindy_pi` は追加依存 `cvxpy` に加え、PySINDy 本体の実装都合で一部ケースでシミュレーションが不安定です（テストでは xfail 扱い）。粗サンプリングでの高精度化が必要な際には `poetry add cvxpy` 等で依存関係を整えた上で `--models pysindy_pi,zero` に切り替え、失敗時は教育実装 `sindy_pi` の併用も検討してください。教育実装（`sindy_stlsq`, `sindy_pi`）との比較は `--models` で手動切り替えできます。
 
 ## 開発のヒント
 - 可能な限り純粋関数と明示的な設定を用い、副作用はランナーに閉じ込めてください。
