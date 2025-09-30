@@ -10,6 +10,7 @@ from ..systems.c1_lti_mass_spring import MassSpringInput
 from ..systems.c1_duffing import DuffingForced
 from ..systems.d1_burgers import Burgers1D
 from ..systems.d2_kuramoto_sivashinsky import KuramotoSivashinsky
+from ..systems.lorenz63 import Lorenz63
 
 from ..systems.base import DynamicalSystem
 from ..io.dataset import split_traj
@@ -27,6 +28,7 @@ SYSTEMS = {
     "duffing_forced": DuffingForced,
     "burgers1d": Burgers1D,
     "kuramoto_sivashinsky": KuramotoSivashinsky,
+    "lorenz63": Lorenz63,
 }
 
 def main():
@@ -61,6 +63,7 @@ def main():
         "duffing_forced": 600.0,
         "burgers1d": 5.0,
         "kuramoto_sivashinsky": 200.0,
+        "lorenz63": 50.0,
     }
 
     total_T = float(args.time) if args.time is not None else default_T_by_system.get(cfg.system, 30.0)

@@ -1,0 +1,13 @@
+# E2: Mass-Spring-Damper with input generalisation
+system: mass_spring_input
+params: {zeta: 0.02, omega: 6.283, b: 1.0, input_mode: prbs, prbs_bit: 0.2, amp: 0.5}
+dt_true: 1.0e-3
+Tfast: 1.0
+r_list: [0.1, 0.25, 0.5, 0.9]
+noise: {SNR_dB: [30, 20], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.6, val: 0.2, test: 0.2}
+seeds: [101]
+metrics: [rollout_rmse]
+extras:
+  eval_inputs: ["sine", "sweep", "chirp"]

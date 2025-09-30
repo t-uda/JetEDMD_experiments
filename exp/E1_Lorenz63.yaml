@@ -1,0 +1,11 @@
+# E1: Lorenz-63 chaotic attractor core experiment
+system: lorenz63
+params: {sigma: 10.0, rho: 28.0, beta: 2.6667}
+dt_true: 5.0e-4
+Tfast: 0.1
+r_list: [0.1, 0.25, 0.5]
+noise: {SNR_dB: [30, 10], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.6, val: 0.2, test: 0.2}
+seeds: [101, 102]
+metrics: [rollout_rmse]
