@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "jetedmd-experiments"
+version = "0.1.0"
+description = "Experimental template for system identification benchmarks using dynid_benchmark."
+authors = ["Tomoki Uda <tomoki.uda@gmail.com>", "Isao Ishikawa"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "dynid_benchmark" }]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+numpy = ">=1.22"
+matplotlib = ">=3.5"
+pyyaml = ">=6.0"
+
+[build-system]
+requires = ["poetry-core>=1.5.0"]
+build-backend = "poetry.core.masonry.api"
