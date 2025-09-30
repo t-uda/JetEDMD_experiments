@@ -9,7 +9,15 @@ from dynid_benchmark.models.base import Model, register_model
 
 @pytest.mark.parametrize(
     "expected_name",
-    ["sindy_stlsq", "sindy_pi", "sindy_implicit", "edmd", "mean_dfdx", "neural_ode", "zero"],
+    [
+        "sindy_stlsq",
+        "sindy_pi",
+        "sindy_implicit",
+        "edmd",
+        "mean_dfdx",
+        "neural_ode",
+        "zero",
+    ],
 )
 def test_registry_contains_expected_models(expected_name):
     ensure_models_imported()

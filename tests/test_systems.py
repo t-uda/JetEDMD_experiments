@@ -25,7 +25,7 @@ def test_lorenz63_produces_finite_trajectory(seed):
 
 @pytest.mark.parametrize("mode", ["prbs", "sine", "sweep", "chirp"])
 def test_mass_spring_input_modes(mode):
-    sys = MassSpringInput({"input_mode": mode, "zeta": 0.02, "omega": 2*np.pi})
+    sys = MassSpringInput({"input_mode": mode, "zeta": 0.02, "omega": 2 * np.pi})
     out = sys.simulate_true(T=0.5, dt_true=1e-3, seed=101)
     assert out["x"].shape[1] == 2
     assert out.get("u") is not None
