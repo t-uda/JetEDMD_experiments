@@ -2,49 +2,89 @@ import numpy as np
 from .base import Model, register_model
 from .sindy_stlsq import build_library, finite_difference
 
+
+def scale_columns(arr: np.ndarray, eps: float = 1e-12):
+    norms = np.linalg.norm(arr, axis=0)
+    norms = np.where(norms < eps, 1.0, norms)
+    return arr / norms, norms
+
+
 @register_model
 class ImplicitSINDy(Model):
-    """Simplified implicit-SINDy:
-    - Build augmented library Ψ = [Θ(X) , dXdt_j]
-    - Find approximate null vector via SVD (smallest singular vector)
-    - Convert to explicit form and refine with thresholded LS.
-    """
+    """Implicit-SINDy with column scaling and SVD-based nullspace fit."""
+
     name = "sindy_implicit"
 
-    def __init__(self, poly_order=3, include_sin_cos=False, lam=0.1):
-        super().__init__(poly_order=poly_order, include_sin_cos=include_sin_cos, lam=lam)
+    def __init__(
+        self,
+        poly_order: int = 3,
+        denom_order: int = 1,
+        include_sin_cos: bool = False,
+        thresh: float = 1e-3,
+    ):
+        super().__init__(
+            poly_order=poly_order,
+            denom_order=denom_order,
+            include_sin_cos=include_sin_cos,
+            thresh=thresh,
+        )
         self.poly_order = poly_order
+        self.denom_order = denom_order
         self.include_sin_cos = include_sin_cos
-        self.lam = lam
-        self.Xi = None
-        self._eval_theta = None
+        self.thresh = thresh
+        self.coeffs = None
+        self._scale_num = None
+        self._scale_den = None
 
     def fit(self, t, y, u=None):
         dXdt = finite_difference(y, t)
-        Theta, names = build_library(y, self.poly_order, self.include_sin_cos)
+        theta_num, _ = build_library(y, self.poly_order, self.include_sin_cos)
+        theta_den, _ = build_library(y, max(self.denom_order, 0), self.include_sin_cos)
+        theta_num_s, scale_num = scale_columns(theta_num)
+        theta_den_s, scale_den = scale_columns(theta_den)
+        self._scale_num = scale_num
+        self._scale_den = scale_den
+
         d = y.shape[1]
-        Xi = np.zeros((Theta.shape[1], d))
+        coeffs = []
         for j in range(d):
-            Psi = np.column_stack([Theta, dXdt[:,j]])
-            # SVD-based null vector
-            U,S,Vt = np.linalg.svd(Psi, full_matrices=False)
-            v = Vt[-1]  # right singular vector for smallest singular value
-            coeff_d = v[-1]
-            if np.abs(coeff_d) < 1e-10:
-                # fallback: explicit LS
-                cj = np.linalg.lstsq(Theta, dXdt[:,j], rcond=None)[0]
+            augmented = np.concatenate(
+                [theta_num_s, theta_den_s * dXdt[:, j:j + 1]],
+                axis=1,
+            )
+            _, _, vh = np.linalg.svd(augmented, full_matrices=False)
+            v = vh[-1]
+            v[np.abs(v) < self.thresh] = 0.0
+            num = v[:theta_num_s.shape[1]]
+            den = v[theta_num_s.shape[1]:]
+            if np.linalg.norm(den) < 1e-10:
+                beta, *_ = np.linalg.lstsq(theta_num_s, dXdt[:, j], rcond=None)
+                coeffs.append(("explicit", beta))
             else:
-                cj = -v[:-1] / coeff_d  # dXdt ≈ Θ c
-            # threshold refine
-            mask = np.abs(cj) >= self.lam
-            if np.any(mask):
-                cj_ref = np.zeros_like(cj)
-                cj_ref[mask] = np.linalg.lstsq(Theta[:,mask], dXdt[:,j], rcond=None)[0]
-                cj = cj_ref
-            Xi[:,j] = cj
-        self.Xi = Xi
-        self._eval_theta = lambda x: build_library(x[None,:], self.poly_order, self.include_sin_cos)[0][0]
+                coeffs.append(("implicit", (num, den)))
+        self.coeffs = coeffs
+
+    def _phi_row(self, x: np.ndarray, order: int, scale: np.ndarray) -> np.ndarray:
+        theta_x, _ = build_library(x[None, :], order, self.include_sin_cos)
+        row = theta_x[0]
+        if scale is not None:
+            row = row / scale
+        return row
 
     def predict_derivative(self, t, x, u=None):
-        theta = self._eval_theta(x)
-        return theta @ self.Xi
+        if self.coeffs is None:
+            raise RuntimeError("Implicit SINDy model is not fitted yet")
+        psi_x = self._phi_row(x, self.poly_order, self._scale_num)
+        phi_x = self._phi_row(x, max(self.denom_order, 0), self._scale_den)
+        out = np.zeros_like(x, dtype=float)
+        for j, (mode, params) in enumerate(self.coeffs):
+            if mode == "explicit":
+                out[j] = psi_x @ params
+            else:
+                num, den = params
+                numerator = psi_x @ num
+                denominator = phi_x @ den
+                if not np.isfinite(denominator) or abs(denominator) < 1e-8:
+                    denominator = 1e-8 if denominator >= 0 else -1e-8
+                out[j] = -numerator / denominator
+        return np.nan_to_num(out, nan=0.0, posinf=1e6, neginf=-1e6)

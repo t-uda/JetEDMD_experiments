@@ -2,83 +2,98 @@ import numpy as np
 from .base import Model, register_model
 from .sindy_stlsq import build_library
 
-def build_integral_system(t, y, win_m=3):
-    """Construct integral equations:
-       Δx_i = ∫ Θ(x) dt * Xi  over sliding windows of length win_m.
-       Returns S (integrated library) and dX (state increments).
-    """
-    N, d = y.shape
-    if N <= win_m:
-        raise ValueError("Not enough samples for integral windows")
-    # precompute dt
-    dt = np.diff(t)
-    # library at nodes
-    Theta_all, names = build_library(y, poly_order=3, include_sin_cos=False)  # order/opts will be overwritten by caller if needed
-    # trapezoid integration over windows
-    rows = []
-    dX = []
-    for i in range(N - win_m):
-        j = i + win_m
-        # Δx
-        dX.append(y[j] - y[i])
-        # integrate Theta over [i, j] using trapezoid per interval
-        Sij = np.zeros((Theta_all.shape[1], d))
-        # but we need S independent of d; compute single row (Theta integral)
-        integ = np.zeros(Theta_all.shape[1])
-        for k in range(i, j):
-            dt_k = t[k+1] - t[k]
-            integ += 0.5 * (Theta_all[k] + Theta_all[k+1]) * dt_k
-        rows.append(integ)
-    S = np.stack(rows, axis=0)   # shape [M, n_features]
-    dX = np.stack(dX, axis=0)    # shape [M, d]
-    return S, dX, names
+
+def scale_columns(arr: np.ndarray, eps: float = 1e-12):
+    norms = np.linalg.norm(arr, axis=0)
+    norms = np.where(norms < eps, 1.0, norms)
+    return arr / norms, norms
+
+
+def stlsq(theta: np.ndarray, targets: np.ndarray, lam: float, max_iter: int, ridge: float):
+    gram = theta.T @ theta + ridge * np.eye(theta.shape[1])
+    coeffs = np.linalg.solve(gram, theta.T @ targets)
+    for _ in range(max_iter):
+        mask_small = np.abs(coeffs) < lam
+        coeffs[mask_small] = 0.0
+        for col in range(targets.shape[1]):
+            keep = ~mask_small[:, col]
+            if np.sum(keep) == 0:
+                continue
+            sub_gram = theta[:, keep].T @ theta[:, keep] + ridge * np.eye(np.sum(keep))
+            coeffs[keep, col] = np.linalg.solve(sub_gram, theta[:, keep].T @ targets[:, col])
+    return coeffs
+
 
 @register_model
 class SINDyPI(Model):
+    """Integral-form SINDy with column scaling and ridge-stabilised STLSQ."""
+
     name = "sindy_pi"
-    def __init__(self, poly_order=3, include_sin_cos=False, lam=0.1, win_m=3):
-        super().__init__(poly_order=poly_order, include_sin_cos=include_sin_cos, lam=lam, win_m=win_m)
+
+    def __init__(
+        self,
+        poly_order: int = 3,
+        include_sin_cos: bool = False,
+        lam: float = 0.1,
+        window_len: int = 3,
+        max_iter: int = 10,
+        ridge: float = 1e-8,
+    ):
+        super().__init__(
+            poly_order=poly_order,
+            include_sin_cos=include_sin_cos,
+            lam=lam,
+            window_len=window_len,
+            max_iter=max_iter,
+            ridge=ridge,
+        )
         self.poly_order = poly_order
         self.include_sin_cos = include_sin_cos
         self.lam = lam
-        self.win_m = win_m
+        self.window_len = max(1, int(window_len))
+        self.max_iter = max_iter
+        self.ridge = ridge
         self.Xi = None
-        self._eval_theta = None
+        self._scale = None
 
     def fit(self, t, y, u=None):
-        # rebuild library with requested options inside integral builder
-        # We'll copy build_library here for consistency
-        from .sindy_stlsq import build_library as _build_lib
-        Theta_all, _ = _build_lib(y, self.poly_order, self.include_sin_cos)
-        # construct integrals
-        N = len(t)
-        dt = np.diff(t)
+        theta_all, _ = build_library(y, self.poly_order, self.include_sin_cos)
+        theta_scaled, scale = scale_columns(theta_all)
+        self._scale = scale
+
+        n = len(t)
+        w = self.window_len
+        if n <= w:
+            raise ValueError("Not enough samples for the requested integration window")
+
         rows = []
-        dX = []
-        for i in range(N - self.win_m):
-            j = i + self.win_m
-            dX.append(y[j] - y[i])
-            integ = np.zeros(Theta_all.shape[1])
+        targets = []
+        for i in range(n - w):
+            j = i + w
+            targets.append(y[j] - y[i])
+            integ = np.zeros(theta_scaled.shape[1], dtype=float)
             for k in range(i, j):
-                dt_k = t[k+1] - t[k]
-                integ += 0.5 * (Theta_all[k] + Theta_all[k+1]) * dt_k
+                dt = t[k + 1] - t[k]
+                integ += 0.5 * (theta_scaled[k] + theta_scaled[k + 1]) * dt
             rows.append(integ)
-        S = np.stack(rows, axis=0)
-        dX = np.stack(dX, axis=0)
-        # Solve per-dimension with thresholded LS
-        d = y.shape[1]
-        Xi = np.zeros((S.shape[1], d))
-        for j in range(d):
-            cj = np.linalg.lstsq(S, dX[:,j], rcond=None)[0]
-            mask = np.abs(cj) >= self.lam
-            if np.any(mask):
-                cj_ref = np.zeros_like(cj)
-                cj_ref[mask] = np.linalg.lstsq(S[:,mask], dX[:,j], rcond=None)[0]
-                cj = cj_ref
-            Xi[:,j] = cj
-        self.Xi = Xi
-        self._eval_theta = lambda x: _build_lib(x[None,:], self.poly_order, self.include_sin_cos)[0][0]
+
+        if not rows:
+            raise ValueError("Failed to build any integral constraints for SINDy-PI")
+
+        theta_int = np.stack(rows, axis=0)
+        delta_x = np.stack(targets, axis=0)
+        self.Xi = stlsq(theta_int, delta_x, lam=self.lam, max_iter=self.max_iter, ridge=self.ridge)
+
+    def _phi_row(self, x: np.ndarray) -> np.ndarray:
+        theta_x, _ = build_library(x[None, :], self.poly_order, self.include_sin_cos)
+        row = theta_x[0]
+        if self._scale is not None:
+            row = row / self._scale
+        return row
 
     def predict_derivative(self, t, x, u=None):
-        theta = self._eval_theta(x)
-        return theta @ self.Xi
+        if self.Xi is None:
+            raise RuntimeError("SINDy-PI model is not fitted yet")
+        theta = self._phi_row(x)
+        dx = theta @ self.Xi
+        return np.nan_to_num(dx, nan=0.0, posinf=1e6, neginf=-1e6)
