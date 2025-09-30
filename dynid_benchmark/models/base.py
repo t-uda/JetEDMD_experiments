@@ -43,5 +43,13 @@ class ZeroModel(Model):
 MODEL_REGISTRY = {"zero": ZeroModel}
 
 def register_model(cls):
-    MODEL_REGISTRY[cls.name] = cls
+    name = getattr(cls, "name", None)
+    if not name:
+        raise ValueError("register_model requires classes to define a non-empty 'name'")
+    existing = MODEL_REGISTRY.get(name)
+    if existing is not None and existing is not cls:
+        raise ValueError(
+            f"Model '{name}' already registered by {existing.__module__}.{existing.__name__}"
+        )
+    MODEL_REGISTRY[name] = cls
     return cls

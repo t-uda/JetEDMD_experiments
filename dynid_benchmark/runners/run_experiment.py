@@ -14,8 +14,7 @@ from ..systems.d2_kuramoto_sivashinsky import KuramotoSivashinsky
 from ..systems.base import DynamicalSystem
 from ..io.dataset import split_traj
 from ..models.base import MODEL_REGISTRY
-from ..models import null  # register
-from ..models import sindy_stlsq  # register
+from ..models import ensure_models_imported
 from ..evaluation.metrics import rollout_rmse, save_metrics
 from ..io.viz import plot_rollout
 
@@ -39,6 +38,7 @@ def main():
     args = ap.parse_args()
 
     cfg = load_yaml(args.config)
+    ensure_models_imported()
     os.makedirs(args.outdir, exist_ok=True)
 
     # instantiate system

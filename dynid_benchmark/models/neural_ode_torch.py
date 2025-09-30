@@ -11,19 +11,27 @@ except Exception as e:
     TORCH_OK = False
     _TORCH_ERR = e
 
-class MLP(nn.Module):
-    def __init__(self, in_dim, hidden=128, depth=2, out_dim=None):
-        super().__init__()
-        layers = []
-        d = in_dim
-        for _ in range(depth):
-            layers.append(nn.Linear(d, hidden))
-            layers.append(nn.Tanh())
-            d = hidden
-        layers.append(nn.Linear(d, out_dim if out_dim is not None else in_dim))
-        self.net = nn.Sequential(*layers)
-    def forward(self, x):
-        return self.net(x)
+if TORCH_OK:
+    class MLP(nn.Module):
+        def __init__(self, in_dim, hidden=128, depth=2, out_dim=None):
+            super().__init__()
+            layers = []
+            d = in_dim
+            for _ in range(depth):
+                layers.append(nn.Linear(d, hidden))
+                layers.append(nn.Tanh())
+                d = hidden
+            layers.append(nn.Linear(d, out_dim if out_dim is not None else in_dim))
+            self.net = nn.Sequential(*layers)
+
+        def forward(self, x):
+            return self.net(x)
+else:  # pragma: no cover - exercised only when torch unavailable
+    class MLP:  # type: ignore[override]
+        def __init__(self, *_, **__):
+            raise RuntimeError(
+                "PyTorch is required for NeuralODE but could not be imported"
+            )
 
 @register_model
 class NeuralODETorch(Model):
