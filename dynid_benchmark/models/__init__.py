@@ -1,4 +1,5 @@
 """Model package init that guarantees registry population."""
+
 from importlib import import_module
 from typing import Iterable, Optional
 

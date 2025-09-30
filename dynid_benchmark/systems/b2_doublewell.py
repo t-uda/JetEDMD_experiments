@@ -1,6 +1,7 @@
 import numpy as np
 from .base import DynamicalSystem, euler_maruyama
 
+
 class DoubleWellSDE(DynamicalSystem):
     def simulate_true(self, T: float, dt_true: float, seed=None):
         p = self.params

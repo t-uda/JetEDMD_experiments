@@ -1,7 +1,8 @@
 import numpy as np
 from scipy import signal
 
-def psd_welch(x, fs, nperseg=None, detrend='constant', window='hann', noverlap=None):
+
+def psd_welch(x, fs, nperseg=None, detrend="constant", window="hann", noverlap=None):
     """
     Power Spectral Density (Welch).
 
@@ -26,8 +27,16 @@ def psd_welch(x, fs, nperseg=None, detrend='constant', window='hann', noverlap=N
     P_list = []
     F = None
     for j in range(x.shape[1]):
-        f, P = signal.welch(x[:,j], fs=fs, nperseg=nperseg, noverlap=noverlap, detrend=detrend, window=window)
-        if F is None: F = f
+        f, P = signal.welch(
+            x[:, j],
+            fs=fs,
+            nperseg=nperseg,
+            noverlap=noverlap,
+            detrend=detrend,
+            window=window,
+        )
+        if F is None:
+            F = f
         P_list.append(P)
-    Pxx = np.stack(P_list, axis=1) if len(P_list)>1 else P
+    Pxx = np.stack(P_list, axis=1) if len(P_list) > 1 else P
     return F, Pxx.squeeze()

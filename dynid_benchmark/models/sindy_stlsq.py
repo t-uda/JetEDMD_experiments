@@ -1,38 +1,44 @@
 import numpy as np
 from .base import Model, register_model
 
+
 def finite_difference(y, t):
     dy = np.zeros_like(y)
     dt = np.diff(t)
     dt = np.clip(dt, 1e-12, None)
     # central for interior, forward/backward for edges
     for i in range(y.shape[1]):
-        yi = y[:,i]
-        dyi = dy[:,i]
+        yi = y[:, i]
+        dyi = dy[:, i]
         dyi[1:-1] = (yi[2:] - yi[:-2]) / (t[2:] - t[:-2])
         dyi[0] = (yi[1] - yi[0]) / dt[0]
         dyi[-1] = (yi[-1] - yi[-2]) / dt[-1]
     return dy
 
+
 def build_library(y, poly_order=3, include_sin_cos=False):
     N, d = y.shape
-    Theta = [np.ones((N,1))]
+    Theta = [np.ones((N, 1))]
     names = ["1"]
     # Polynomial terms up to order
-    for p in range(1, poly_order+1):
+    for p in range(1, poly_order + 1):
         # all monomials of degree p
         from itertools import combinations_with_replacement
+
         for combo in combinations_with_replacement(range(d), p):
-            term = np.prod([y[:,j] for j in combo], axis=0)[:,None]
+            term = np.prod([y[:, j] for j in combo], axis=0)[:, None]
             Theta.append(term)
             name = "*".join([f"x{j}" for j in combo])
             names.append(name)
     if include_sin_cos:
         for j in range(d):
-            Theta.append(np.sin(y[:,j:j+1])); names.append(f"sin(x{j})")
-            Theta.append(np.cos(y[:,j:j+1])); names.append(f"cos(x{j})")
+            Theta.append(np.sin(y[:, j : j + 1]))
+            names.append(f"sin(x{j})")
+            Theta.append(np.cos(y[:, j : j + 1]))
+            names.append(f"cos(x{j})")
     Theta = np.concatenate(Theta, axis=1)
     return Theta, names
+
 
 def stlsq(Theta, dXdt, lam=0.1, max_iter=10):
     # Sequentially thresholded least squares
@@ -41,19 +47,29 @@ def stlsq(Theta, dXdt, lam=0.1, max_iter=10):
         small = np.abs(Xi) < lam
         Xi[small] = 0.0
         for k in range(dXdt.shape[1]):
-            big_idx = ~small[:,k]
+            big_idx = ~small[:, k]
             if np.sum(big_idx) == 0:
                 continue
-            Xi[big_idx, k] = np.linalg.lstsq(Theta[:, big_idx], dXdt[:,k], rcond=None)[0]
+            Xi[big_idx, k] = np.linalg.lstsq(Theta[:, big_idx], dXdt[:, k], rcond=None)[
+                0
+            ]
     return Xi
+
 
 @register_model
 class SINDySTLSQ(Model):
     name = "sindy_stlsq"
 
-    def __init__(self, poly_order=3, include_sin_cos=False, lam=0.1, max_iter=10, smooth_window=0):
-        super().__init__(poly_order=poly_order, include_sin_cos=include_sin_cos,
-                         lam=lam, max_iter=max_iter, smooth_window=smooth_window)
+    def __init__(
+        self, poly_order=3, include_sin_cos=False, lam=0.1, max_iter=10, smooth_window=0
+    ):
+        super().__init__(
+            poly_order=poly_order,
+            include_sin_cos=include_sin_cos,
+            lam=lam,
+            max_iter=max_iter,
+            smooth_window=smooth_window,
+        )
         self.poly_order = poly_order
         self.include_sin_cos = include_sin_cos
         self.lam = lam
@@ -63,12 +79,15 @@ class SINDySTLSQ(Model):
         self.Theta_names = None
 
     def _smooth(self, y, win):
-        if win <= 1: return y
+        if win <= 1:
+            return y
         from numpy.lib.stride_tricks import sliding_window_view
-        if win % 2 == 0: win += 1
-        pad = win//2
-        ypad = np.pad(y, ((pad,pad),(0,0)), mode="edge")
-        sw = sliding_window_view(ypad, (win, y.shape[1]))[:,0,:,:]
+
+        if win % 2 == 0:
+            win += 1
+        pad = win // 2
+        ypad = np.pad(y, ((pad, pad), (0, 0)), mode="edge")
+        sw = sliding_window_view(ypad, (win, y.shape[1]))[:, 0, :, :]
         return np.mean(sw, axis=1)
 
     def fit(self, t, y, u=None):
@@ -76,10 +95,11 @@ class SINDySTLSQ(Model):
         dXdt = finite_difference(y_use, t)
         Theta, names = build_library(y_use, self.poly_order, self.include_sin_cos)
         Xi = stlsq(Theta, dXdt, lam=self.lam, max_iter=self.max_iter)
-        self.Xi = Xi; self.Theta_names = names
+        self.Xi = Xi
+        self.Theta_names = names
 
     def _eval_theta(self, x_row):
-        x = x_row[None,:]
+        x = x_row[None, :]
         Theta_row, _ = build_library(x, self.poly_order, self.include_sin_cos)
         return Theta_row[0]
 

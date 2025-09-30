@@ -1,7 +1,8 @@
 import numpy as np
 from scipy import signal
 
-def frf_welch(u, y, fs, nperseg=None, detrend='constant', window='hann', noverlap=None):
+
+def frf_welch(u, y, fs, nperseg=None, detrend="constant", window="hann", noverlap=None):
     """
     Estimate Frequency Response Function (FRF) H(f) = S_yu(f) / S_uu(f) via Welch's method.
 
@@ -46,30 +47,54 @@ def frf_welch(u, y, fs, nperseg=None, detrend='constant', window='hann', noverla
         Syu_cols = []
         Suu_cols = []
         for mi in range(u.shape[1]):
-            f, Puy = signal.csd(y[:,pi], u[:,mi], fs=fs, nperseg=nperseg, noverlap=noverlap, detrend=detrend, window=window)
-            _, Puu = signal.welch(u[:,mi], fs=fs, nperseg=nperseg, noverlap=noverlap, detrend=detrend, window=window)
-            _, Coh = signal.coherence(y[:,pi], u[:,mi], fs=fs, nperseg=nperseg, noverlap=noverlap, detrend=detrend, window=window)
+            f, Puy = signal.csd(
+                y[:, pi],
+                u[:, mi],
+                fs=fs,
+                nperseg=nperseg,
+                noverlap=noverlap,
+                detrend=detrend,
+                window=window,
+            )
+            _, Puu = signal.welch(
+                u[:, mi],
+                fs=fs,
+                nperseg=nperseg,
+                noverlap=noverlap,
+                detrend=detrend,
+                window=window,
+            )
+            _, Coh = signal.coherence(
+                y[:, pi],
+                u[:, mi],
+                fs=fs,
+                nperseg=nperseg,
+                noverlap=noverlap,
+                detrend=detrend,
+                window=window,
+            )
             H_cols.append(Puy / (Puu + 1e-15))
             C_cols.append(Coh)
             Syu_cols.append(Puy)
             Suu_cols.append(Puu)
             if F is None:
                 F = f
-        H_list.append(np.stack(H_cols, axis=1))   # (F, m)
-        C_list.append(np.stack(C_cols, axis=1))   # (F, m)
+        H_list.append(np.stack(H_cols, axis=1))  # (F, m)
+        C_list.append(np.stack(C_cols, axis=1))  # (F, m)
         Syu_list.append(np.stack(Syu_cols, axis=1))
         Suu_list.append(np.stack(Suu_cols, axis=1))
-    H = np.stack(H_list, axis=1)   # (F, p, m)
-    coh = np.stack(C_list, axis=1) # (F, p, m)
+    H = np.stack(H_list, axis=1)  # (F, p, m)
+    coh = np.stack(C_list, axis=1)  # (F, p, m)
     Syu = np.stack(Syu_list, axis=1)
     Suu = np.stack(Suu_list, axis=1)
     return F, H.squeeze(), coh.squeeze(), Syu.squeeze(), Suu.squeeze()
+
 
 def bode_mag_phase(H, deg=True):
     """
     Convert complex FRF to magnitude [dB] and phase [deg or rad].
     H : ndarray (...,)
     """
-    mag_db = 20.0*np.log10(np.maximum(np.abs(H), 1e-15))
+    mag_db = 20.0 * np.log10(np.maximum(np.abs(H), 1e-15))
     ang = np.angle(H, deg=deg)
     return mag_db, ang

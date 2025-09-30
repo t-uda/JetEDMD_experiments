@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Tuple, Optional, Callable
 import numpy as np
 
+
 class DynamicalSystem(ABC):
     """Base interface for generating ground-truth trajectories and sampling."""
 
@@ -9,23 +10,27 @@ class DynamicalSystem(ABC):
         self.params = params
 
     @abstractmethod
-    def simulate_true(self, T: float, dt_true: float, seed: Optional[int]=None) -> Dict[str, np.ndarray]:
+    def simulate_true(
+        self, T: float, dt_true: float, seed: Optional[int] = None
+    ) -> Dict[str, np.ndarray]:
         """Return dict with keys:
-           - 't': time array (shape [N])
-           - 'x': state array (shape [N, d])
-           - optionally 'u': input array (shape [N, m]) if system has input
+        - 't': time array (shape [N])
+        - 'x': state array (shape [N, d])
+        - optionally 'u': input array (shape [N, m]) if system has input
         """
         pass
 
-    def sample_observations(self,
-                            true: Dict[str, np.ndarray],
-                            Tfast: float,
-                            r: float,
-                            snr_db: float = 30.0,
-                            jitter_pct: float = 0.0,
-                            missing_pct: float = 0.0,
-                            outlier_rate: float = 0.0,
-                            seed: Optional[int]=None) -> Dict[str, np.ndarray]:
+    def sample_observations(
+        self,
+        true: Dict[str, np.ndarray],
+        Tfast: float,
+        r: float,
+        snr_db: float = 30.0,
+        jitter_pct: float = 0.0,
+        missing_pct: float = 0.0,
+        outlier_rate: float = 0.0,
+        seed: Optional[int] = None,
+    ) -> Dict[str, np.ndarray]:
         """Subsample, jitter, add noise/outliers. Returns dict with 't','y', optionally 'u'."""
         rng = np.random.default_rng(seed)
         t_true = true["t"]
@@ -49,10 +54,11 @@ class DynamicalSystem(ABC):
             d = xs.shape[1]
             y = np.empty((len(tq), d), dtype=float)
             idx = np.searchsorted(ts, tq, side="left")
-            idx = np.clip(idx, 1, len(ts)-1)
-            t0s = ts[idx-1]; t1s = ts[idx]
+            idx = np.clip(idx, 1, len(ts) - 1)
+            t0s = ts[idx - 1]
+            t1s = ts[idx]
             w = (tq - t0s) / (t1s - t0s + 1e-12)
-            y = (1.0 - w)[:,None]*xs[idx-1] + w[:,None]*xs[idx]
+            y = (1.0 - w)[:, None] * xs[idx - 1] + w[:, None] * xs[idx]
             return y
 
         y_obs = interp_traj(t_true, x_true, t_obs)
@@ -64,7 +70,7 @@ class DynamicalSystem(ABC):
         # Additive Gaussian noise to achieve SNR (per-dimension)
         if snr_db is not None:
             var = np.var(y_obs, axis=0) + 1e-12
-            sigma = np.sqrt(var / (10**(snr_db/10.0)))
+            sigma = np.sqrt(var / (10 ** (snr_db / 10.0)))
             noise = rng.normal(size=y_obs.shape) * sigma
             y_obs = y_obs + noise
 
@@ -99,18 +105,21 @@ class DynamicalSystem(ABC):
             out["_true_u"] = u_true
         return out
 
+
 # Generic integrators (RK4 and Euler-Maruyama)
 def rk4_step(f, t, x, dt):
     k1 = f(t, x)
-    k2 = f(t + 0.5*dt, x + 0.5*dt*k1)
-    k3 = f(t + 0.5*dt, x + 0.5*dt*k2)
-    k4 = f(t + dt, x + dt*k3)
-    return x + (dt/6.0)*(k1 + 2*k2 + 2*k3 + k4)
+    k2 = f(t + 0.5 * dt, x + 0.5 * dt * k1)
+    k3 = f(t + 0.5 * dt, x + 0.5 * dt * k2)
+    k4 = f(t + dt, x + dt * k3)
+    return x + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
 
-def simulate_ode(f, x0, T, dt, with_u: bool=False, u_fn=None):
+
+def simulate_ode(f, x0, T, dt, with_u: bool = False, u_fn=None):
     import numpy as np
-    N = int(np.floor(T/dt)) + 1
-    t = np.linspace(0.0, N*dt, N)
+
+    N = int(np.floor(T / dt)) + 1
+    t = np.linspace(0.0, N * dt, N)
     x = np.zeros((N, len(x0)), dtype=float)
     x[0] = x0
     if with_u and u_fn is not None:
@@ -119,30 +128,34 @@ def simulate_ode(f, x0, T, dt, with_u: bool=False, u_fn=None):
     else:
         u = None
     for i in range(1, N):
-        ti = t[i-1]
+        ti = t[i - 1]
         if with_u and u_fn is not None:
-            ui = u_fn(ti, x[i-1])
+            ui = u_fn(ti, x[i - 1])
+
             def f_pack(tj, xj):
                 return f(tj, xj, ui)
-            x[i] = rk4_step(f_pack, ti, x[i-1], dt)
+
+            x[i] = rk4_step(f_pack, ti, x[i - 1], dt)
             u[i] = ui
         else:
-            x[i] = rk4_step(f, ti, x[i-1], dt)
+            x[i] = rk4_step(f, ti, x[i - 1], dt)
     if u is not None:
         return {"t": t, "x": x, "u": u}
     else:
         return {"t": t, "x": x}
 
+
 def euler_maruyama(g, x0, T, dt, rng):
     import numpy as np
-    N = int(np.floor(T/dt)) + 1
-    t = np.linspace(0.0, N*dt, N)
+
+    N = int(np.floor(T / dt)) + 1
+    t = np.linspace(0.0, N * dt, N)
     x = np.zeros((N, len(x0)), dtype=float)
     x[0] = x0
     for i in range(1, N):
-        xi = x[i-1]
-        ti = t[i-1]
+        xi = x[i - 1]
+        ti = t[i - 1]
         drift, sigma = g(ti, xi)  # returns (drift vector, scalar sigma or per-dim)
         dW = rng.normal(size=xi.shape) * np.sqrt(dt)
-        x[i] = xi + drift*dt + sigma*dW
+        x[i] = xi + drift * dt + sigma * dW
     return {"t": t, "x": x}

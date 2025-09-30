@@ -9,7 +9,9 @@ def scale_columns(arr: np.ndarray, eps: float = 1e-12):
     return arr / norms, norms
 
 
-def stlsq(theta: np.ndarray, targets: np.ndarray, lam: float, max_iter: int, ridge: float):
+def stlsq(
+    theta: np.ndarray, targets: np.ndarray, lam: float, max_iter: int, ridge: float
+):
     gram = theta.T @ theta + ridge * np.eye(theta.shape[1])
     coeffs = np.linalg.solve(gram, theta.T @ targets)
     for _ in range(max_iter):
@@ -20,7 +22,9 @@ def stlsq(theta: np.ndarray, targets: np.ndarray, lam: float, max_iter: int, rid
             if np.sum(keep) == 0:
                 continue
             sub_gram = theta[:, keep].T @ theta[:, keep] + ridge * np.eye(np.sum(keep))
-            coeffs[keep, col] = np.linalg.solve(sub_gram, theta[:, keep].T @ targets[:, col])
+            coeffs[keep, col] = np.linalg.solve(
+                sub_gram, theta[:, keep].T @ targets[:, col]
+            )
     return coeffs
 
 
@@ -82,7 +86,9 @@ class SINDyPI(Model):
 
         theta_int = np.stack(rows, axis=0)
         delta_x = np.stack(targets, axis=0)
-        self.Xi = stlsq(theta_int, delta_x, lam=self.lam, max_iter=self.max_iter, ridge=self.ridge)
+        self.Xi = stlsq(
+            theta_int, delta_x, lam=self.lam, max_iter=self.max_iter, ridge=self.ridge
+        )
 
     def _phi_row(self, x: np.ndarray) -> np.ndarray:
         theta_x, _ = build_library(x[None, :], self.poly_order, self.include_sin_cos)

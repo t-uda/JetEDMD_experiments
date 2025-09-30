@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def _embed(x, m, tau):
     """
     Delay-coordinate embedding: R^N -> R^{N-(m-1)tau} by stacking delayed copies.
@@ -10,13 +11,14 @@ def _embed(x, m, tau):
         Embedded trajectory, M = N - (m-1)tau
     """
     N = len(x)
-    M = N - (m-1)*tau
+    M = N - (m - 1) * tau
     if M <= 1:
         raise ValueError("Time series too short for the requested embedding.")
     X = np.zeros((M, m), dtype=float)
     for i in range(m):
-        X[:, i] = x[i*tau : i*tau + M]
+        X[:, i] = x[i * tau : i * tau + M]
     return X
+
 
 def rosenstein_lmax(x, fs, m=6, tau=None, theiler=10, fit_range=(5, 50)):
     """
@@ -51,24 +53,25 @@ def rosenstein_lmax(x, fs, m=6, tau=None, theiler=10, fit_range=(5, 50)):
 
     # Pick tau by autocorrelation crossing 1/e (if not provided)
     if tau is None:
-        ac = np.correlate(x - x.mean(), x - x.mean(), mode='full')
-        ac = ac[ac.size//2:]
+        ac = np.correlate(x - x.mean(), x - x.mean(), mode="full")
+        ac = ac[ac.size // 2 :]
         ac = ac / ac[0]
-        tau = int(np.argmax(ac < 1/np.e))
+        tau = int(np.argmax(ac < 1 / np.e))
         tau = max(tau, 1)
 
     # Build embedding
-    X = _embed(x, m=m, tau=tau)   # (M, m)
+    X = _embed(x, m=m, tau=tau)  # (M, m)
     M = X.shape[0]
 
     # For each point, find nearest neighbor with Theiler exclusion
     from numpy.linalg import norm
+
     dists = np.full(M, np.inf)
     idx_nn = np.full(M, -1, dtype=int)
     for i in range(M):
         # Compute distances to all points except within theiler window
         j = np.arange(M)
-        mask = (np.abs(j - i) > theiler)
+        mask = np.abs(j - i) > theiler
         if np.any(mask):
             d = norm(X[mask] - X[i], axis=1)
             k = np.argmin(d)
@@ -85,7 +88,9 @@ def rosenstein_lmax(x, fs, m=6, tau=None, theiler=10, fit_range=(5, 50)):
         if not np.any(mask):
             y_log.append(np.nan)
             continue
-        sep = np.linalg.norm(X[mask][:,None,:] - X[idx_nn[mask]+j][:,None,:], axis=2).squeeze()
+        sep = np.linalg.norm(
+            X[mask][:, None, :] - X[idx_nn[mask] + j][:, None, :], axis=2
+        ).squeeze()
         # Avoid zeros
         sep = np.maximum(sep, 1e-15)
         y_log.append(np.mean(np.log(sep)))
@@ -99,5 +104,5 @@ def rosenstein_lmax(x, fs, m=6, tau=None, theiler=10, fit_range=(5, 50)):
     y = y_log[mask]
     A = np.vstack([np.ones_like(t_axis), t_axis]).T
     coef, *_ = np.linalg.lstsq(A, y, rcond=None)
-    slope = coef[1]   # slope in log distance per second
+    slope = coef[1]  # slope in log distance per second
     return float(slope), j_axis, y_log

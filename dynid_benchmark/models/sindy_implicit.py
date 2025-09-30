@@ -49,14 +49,14 @@ class ImplicitSINDy(Model):
         coeffs = []
         for j in range(d):
             augmented = np.concatenate(
-                [theta_num_s, theta_den_s * dXdt[:, j:j + 1]],
+                [theta_num_s, theta_den_s * dXdt[:, j : j + 1]],
                 axis=1,
             )
             _, _, vh = np.linalg.svd(augmented, full_matrices=False)
             v = vh[-1]
             v[np.abs(v) < self.thresh] = 0.0
-            num = v[:theta_num_s.shape[1]]
-            den = v[theta_num_s.shape[1]:]
+            num = v[: theta_num_s.shape[1]]
+            den = v[theta_num_s.shape[1] :]
             if np.linalg.norm(den) < 1e-10:
                 beta, *_ = np.linalg.lstsq(theta_num_s, dXdt[:, j], rcond=None)
                 coeffs.append(("explicit", beta))

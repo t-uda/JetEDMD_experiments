@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def find_level_crossings(t, y, level=0.0):
     """
     Detect times where y crosses a given level (default 0.0) using linear interpolation.
@@ -18,7 +19,7 @@ def find_level_crossings(t, y, level=0.0):
     t_events : ndarray (K,)
         Estimated event times (sub-sample accuracy by linear interpolation).
     """
-    yy = y[:,0] if y.ndim == 2 else y
+    yy = y[:, 0] if y.ndim == 2 else y
     s = yy - level
     sign = np.sign(s)
     # sign changes between consecutive samples indicate a crossing
@@ -26,8 +27,8 @@ def find_level_crossings(t, y, level=0.0):
     t_events = []
     for i in idx:
         # Linear interpolation between (t[i], y[i]) and (t[i+1], y[i+1])
-        t0, t1 = t[i], t[i+1]
-        y0, y1 = yy[i], yy[i+1]
+        t0, t1 = t[i], t[i + 1]
+        y0, y1 = yy[i], yy[i + 1]
         if y1 == y0:
             tau = 0.5
         else:
@@ -35,6 +36,7 @@ def find_level_crossings(t, y, level=0.0):
         tau = np.clip(tau, 0.0, 1.0)
         t_events.append(t0 + tau * (t1 - t0))
     return np.asarray(t_events, dtype=float)
+
 
 def match_events(t_true, t_pred, tol=None):
     """
@@ -66,6 +68,7 @@ def match_events(t_true, t_pred, tol=None):
             used[j] = True
     return pairs
 
+
 def event_timing_metrics(t_true, t_pred, tol=None):
     """
     Compute summary metrics for event timing errors.
@@ -77,15 +80,22 @@ def event_timing_metrics(t_true, t_pred, tol=None):
     """
     pairs = match_events(t_true, t_pred, tol=tol)
     if not pairs:
-        return {'n_true': len(t_true), 'n_pred': len(t_pred), 'n_matched': 0,
-                'mae': np.nan, 'median': np.nan, 'p95': np.nan, 'bias': np.nan}
-    dts = np.array([dt for _,_,dt in pairs], dtype=float)
+        return {
+            "n_true": len(t_true),
+            "n_pred": len(t_pred),
+            "n_matched": 0,
+            "mae": np.nan,
+            "median": np.nan,
+            "p95": np.nan,
+            "bias": np.nan,
+        }
+    dts = np.array([dt for _, _, dt in pairs], dtype=float)
     return {
-        'n_true': int(len(t_true)),
-        'n_pred': int(len(t_pred)),
-        'n_matched': int(len(pairs)),
-        'mae': float(np.mean(np.abs(dts))),
-        'median': float(np.median(dts)),
-        'p95': float(np.percentile(np.abs(dts), 95)),
-        'bias': float(np.mean(dts)),
+        "n_true": int(len(t_true)),
+        "n_pred": int(len(t_pred)),
+        "n_matched": int(len(pairs)),
+        "mae": float(np.mean(np.abs(dts))),
+        "median": float(np.median(dts)),
+        "p95": float(np.percentile(np.abs(dts), 95)),
+        "bias": float(np.mean(dts)),
     }

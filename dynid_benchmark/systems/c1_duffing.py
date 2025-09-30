@@ -1,6 +1,7 @@
 import numpy as np
 from .base import DynamicalSystem, simulate_ode
 
+
 class DuffingForced(DynamicalSystem):
     def simulate_true(self, T: float, dt_true: float, seed=None):
         p = self.params
@@ -12,7 +13,7 @@ class DuffingForced(DynamicalSystem):
 
         def f(t, s):
             x, v = s
-            a = -delta*v - alpha*x - beta*(x**3) + gamma*np.cos(Omega*t)
+            a = -delta * v - alpha * x - beta * (x**3) + gamma * np.cos(Omega * t)
             return np.array([v, a])
 
         x0 = np.array([0.0, 0.0])

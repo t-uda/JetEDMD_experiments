@@ -20,9 +20,11 @@ class Lorenz63(DynamicalSystem):
             return np.array([dx, dy, dz])
 
         rng = np.random.default_rng(seed)
-        x0 = np.array([
-            1.0 + 0.1 * rng.standard_normal(),
-            1.0 + 0.1 * rng.standard_normal(),
-            1.0 + 0.1 * rng.standard_normal(),
-        ])
+        x0 = np.array(
+            [
+                1.0 + 0.1 * rng.standard_normal(),
+                1.0 + 0.1 * rng.standard_normal(),
+                1.0 + 0.1 * rng.standard_normal(),
+            ]
+        )
         return simulate_ode(f, x0, T, dt_true)
