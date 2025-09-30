@@ -1,36 +1,57 @@
+# dynid_benchmark_template
 
+YAML を読み込み、**データ生成 → 観測化（粗サンプリング・ノイズ等）→ 学習 → 評価 → 図出力**までを一気に行う実験雛形です。
 
-## 追加の評価ユーティリティ（論文図向け）
+- 8本の代表系（A1/A2/B1/B2/C1-1/C1-2/D1/D2）に対応。
+- 追加の手法は `dynid_benchmark/models/base.py` の `Model` を継承し、`MODEL_REGISTRY` に登録するだけ。
+- 例として **SINDy（STLSQ）** と **Zero/MeanDerivative** の軽量ベースラインを同梱（外部依存なし）。
 
-### FRF / Bode（Welch 推定）
-```python
-from dynid_benchmark.evaluation import frf_welch, bode_mag_phase
-fs = 1.0 / np.mean(np.diff(t_train))
-f, H, coh, Syu, Suu = frf_welch(u_train[:,0], y_train[:,0], fs=fs, nperseg=1024)
-mag_db, phase_deg = bode_mag_phase(H, deg=True)
+## インストール
+
+```bash
+python -m venv .venv && source .venv/bin/activate  # (Windows: .venv\\Scripts\\activate)
+pip install -r requirements.txt
 ```
 
-### PSD（Welch）
-```python
-from dynid_benchmark.evaluation import psd_welch
-fs = 1.0 / np.mean(np.diff(t_test))
-f, Pxx = psd_welch(y_test[:,0], fs=fs, nperseg=1024)
+> `requirements.txt` は極小（numpy, pyyaml, matplotlib）。SciPy 等は不要です。
+
+## 使い方（A1 例）
+
+```bash
+python -m dynid_benchmark.runners.run_experiment --config exp/A1_kappa_sweep.yaml --models sindy_stlsq,zero --outdir runs
 ```
 
-### 最大リアプノフ指数（Rosenstein）
+- 生成物は `runs/<exp_id>/<tag>/` に保存（`metrics_*.json`, `rollout_*.png`, `data_*.npz`）。
+- `--time` で総シミュレーション時間を上書き可能。
+
+## 手法の追加
+
+`dynid_benchmark/models/base.py` の `Model` を継承：
+
 ```python
-from dynid_benchmark.evaluation import rosenstein_lmax
-fs = 1.0 / np.mean(np.diff(t_test))
-lmax, j_axis, y_log = rosenstein_lmax(y_test[:,0], fs=fs, m=6, tau=None, theiler=10, fit_range=(5,50))
+from dynid_benchmark.models.base import Model, register_model
+
+@register_model
+class YourMethod(Model):
+    name = "your_method"
+    def fit(self, t, y, u=None):
+        # 学習処理
+        ...
+    def predict_derivative(self, t, x, u=None):
+        # 連続時間ベクトル場 f_hat(x[,u]) を返す
+        return ...
 ```
 
-### イベント時刻誤差（バウンシングボール等）
-```python
-from dynid_benchmark.evaluation import find_level_crossings, event_timing_metrics
-t_true_evt = find_level_crossings(t_true, y_true[:,0], level=0.0)
-t_pred_evt = find_level_crossings(t_pred, y_pred[:,0], level=0.0)
-stats = event_timing_metrics(t_true_evt, t_pred_evt, tol=0.05)  # 50ms 許容
-```
+`--models your_method` で呼び出せます。
 
-> **注**：上記は数値例です。論文では、同一の `fs`・窓長・重複率等を**全手法で揃える**と公平な比較になります。
+## 実装上の注意
+- 図は **matplotlib** のみ使用（seaborn 不要）。
+- 1 図 1 チャートに統一（論文図に貼りやすい）。
 
+## 構成
+- `dynid_benchmark/systems/`: 各ベンチマークの真値生成器（ODE/SDE/PDE）
+- `dynid_benchmark/models/`: 手法の実装とレジストリ
+- `dynid_benchmark/evaluation/`: 指標計算・保存
+- `dynid_benchmark/io/`: データ I/O, 可視化
+- `dynid_benchmark/runners/`: 実験ランナー
+- `exp/`: 実験ごとの YAML

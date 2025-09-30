@@ -1,0 +1,11 @@
+# B2: 二井戸 Langevin（プロセス雑音）
+system: doublewell
+params: {sigma: 0.3}
+dt_true: 1.0e-4
+Tfast: 0.5
+r_list: [0.05, 0.1, 0.25, 0.5]
+noise: {SNR_dB: [30], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.6, val: 0.2, test: 0.2}
+seeds: [101]
+metrics: [rollout_rmse]

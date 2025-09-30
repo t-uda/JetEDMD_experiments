@@ -1,0 +1,11 @@
+# B1: OU（測定雑音スイープ）
+system: ou
+params: {theta: 1.0}
+dt_true: 1.0e-3
+Tfast: 1.0
+r_list: [0.05, 0.1, 0.25, 0.5, 1.0]
+noise: {SNR_dB: [30, 20, 10, 5], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.6, val: 0.2, test: 0.2}
+seeds: [101, 102]
+metrics: [rollout_rmse]

@@ -1,0 +1,11 @@
+# D2: Kuramoto–Sivashinsky（カオス PDE・統計整合）
+system: kuramoto_sivashinsky
+params: {L: 22.0, Nx: 128}
+dt_true: 5.0e-4
+Tfast: 0.1
+r_list: [0.05, 0.1]
+noise: {SNR_dB: [20], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.5, val: 0.25, test: 0.25}
+seeds: [101]
+metrics: [rollout_rmse]

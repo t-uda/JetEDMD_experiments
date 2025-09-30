@@ -1,0 +1,11 @@
+# D1: Burgers 1D（半離散 ODE／空間解像度外挿）
+system: burgers1d
+params: {nu: 0.0031830988618379067, L: 1.0, Nx: 128}
+dt_true: 2.0e-4
+Tfast: 0.1
+r_list: [0.1, 0.05]
+noise: {SNR_dB: [30, 20], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.5, val: 0.25, test: 0.25}
+seeds: [101]
+metrics: [rollout_rmse]

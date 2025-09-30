@@ -1,0 +1,11 @@
+# C1-2: 強制 Duffing（帯域外一般化）
+system: duffing_forced
+params: {delta: 0.2, alpha: -1.0, beta: 1.0, gamma: 0.3, Omega: 1.2}
+dt_true: 1.0e-3
+Tfast: 5.235987755982989  # 2π/Ω
+r_list: [0.05, 0.1, 0.25, 0.5]
+noise: {SNR_dB: [20], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.6, val: 0.2, test: 0.2}
+seeds: [101]
+metrics: [rollout_rmse]

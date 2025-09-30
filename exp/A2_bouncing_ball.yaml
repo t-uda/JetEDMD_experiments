@@ -1,0 +1,11 @@
+# A2: バウンシングボール（硬↔柔）
+system: bouncing_ball
+params: {mode: hard, g: 9.81, restitution: 0.85, m: 1.0, k_s: 1000.0, zeta_s: 0.05, y0: 1.0, v0: 0.0}
+dt_true: 1.0e-4
+Tfast: 0.45  # 初回落下オーダー
+r_list: [0.02, 0.05, 0.1, 0.2, 0.5]
+noise: {SNR_dB: [30, 20], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.6, val: 0.2, test: 0.2}
+seeds: [101]
+metrics: [rollout_rmse]

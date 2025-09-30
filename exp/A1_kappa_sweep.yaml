@@ -1,0 +1,11 @@
+# A1: 乾燥摩擦オシレータ（平滑化 sgn の kappa スイープ）
+system: dry_friction_oscillator
+params: {m: 1.0, k: 39.4784176, zeta: 0.02, mu: 0.2, g: 9.81, kappa: 20.0}
+dt_true: 1.0e-3
+Tfast: 1.0
+r_list: [0.05, 0.1, 0.25, 0.5, 0.9]
+noise: {SNR_dB: [30, 10], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.6, val: 0.2, test: 0.2}
+seeds: [101, 102]
+metrics: [rollout_rmse, energy_drift]
