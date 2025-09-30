@@ -2,6 +2,8 @@
 
 This document captures working practices and project-specific context so that coding agents can operate consistently across sessions.
 
+> ドキュメント類は可能な限り日本語で整備してください（共同研究者間での共有を円滑にするため）。
+
 ## Repository Overview
 - Core library lives under `dynid_benchmark/` and is packaged via Poetry (`pyproject.toml`).
 - Experiments and configuration files are kept in `exp/` and runnable through `dynid_benchmark.runners.run_experiment`.

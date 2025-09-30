@@ -1,32 +1,50 @@
-# dynid_benchmark_template
+# JetEDMD 実験リポジトリ
 
-YAML を読み込み、**データ生成 → 観測化（粗サンプリング・ノイズ等）→ 学習 → 評価 → 図出力**までを一気に行う実験雛形です。
+`dynid_benchmark` を基盤に、力学系同定の数値実験を再現可能な形で実施するためのテンプレートです。基準ベンチマークの実装、YAML 設定によるパイプライン制御、学習モデルの追加手順、成果物管理の流れをまとめています。
 
-- 8本の代表系（A1/A2/B1/B2/C1-1/C1-2/D1/D2）に対応。
-- 追加の手法は `dynid_benchmark/models/base.py` の `Model` を継承し、`MODEL_REGISTRY` に登録するだけ。
-- 例として **SINDy（STLSQ）** と **Zero/MeanDerivative** の軽量ベースラインを同梱（外部依存なし）。
+## 特徴
+- A1〜E4 の系列（ODE / SDE / PDE / ハイブリッド）をカバーする代表ベンチマークを同梱。
+- `exp/` 配下の YAML で「データ生成 → 観測化 → 学習 → 評価 → 図出力」までを一括実行。
+- `dynid_benchmark.models.register_model` による軽量なプラグイン API で手法を追加可能。
+- 実行環境は Poetry で管理し、依存関係は最小限（`numpy`, `pyyaml`, `matplotlib`）。
 
-## インストール
-
-```bash
-python -m venv .venv && source .venv/bin/activate  # (Windows: .venv\\Scripts\\activate)
-pip install -r requirements.txt
-```
-
-> `requirements.txt` は極小（numpy, pyyaml, matplotlib）。SciPy 等は不要です。
-
-## 使い方（A1 例）
+## クイックスタート
+0. 必要要件：Python 3.10 以上、Poetry がインストール済みであること。
+1. 依存関係の導入とスモークテスト実行：
 
 ```bash
-python -m dynid_benchmark.runners.run_experiment --config exp/A1_kappa_sweep.yaml --models sindy_stlsq,zero --outdir runs
+poetry install
+poetry run pytest -q
 ```
 
-- 生成物は `runs/<exp_id>/<tag>/` に保存（`metrics_*.json`, `rollout_*.png`, `data_*.npz`）。
-- `--time` で総シミュレーション時間を上書き可能。
+2. 実験の起動例（A1 κ スイープ、SINDy + ベースライン Zero モデル）：
 
-## 手法の追加
+```bash
+poetry run python -m dynid_benchmark.runners.run_experiment \
+  --config exp/A1_kappa_sweep.yaml \
+  --models sindy_stlsq,zero \
+  --outdir runs
+```
 
-`dynid_benchmark/models/base.py` の `Model` を継承：
+生成された成果物は `runs/<exp_id>/<tag>/` に保存され、メトリクス（`metrics_*.json`）、ロールアウト図（`rollout_*.png`）、シリアライズ済みデータ（`data_*.npz`）などを含みます。`--time` でシミュレーション時間の上書き、`--models` に複数モデルをカンマ区切りで指定できます。
+
+## プロジェクト構成
+- `dynid_benchmark/`：真値システム、モデル実装、評価指標、I/O、ランナー等のコアライブラリ。
+- `exp/`：実験設定 YAML。一連のパラメータ調整はここで行います。
+- `results/`, `runs*/`：実験結果の保存先。大きな成果物はリポジトリにコミットしないよう注意。
+- `tests/`：回帰テスト・スモークテスト。
+- `AGENTS.md`, `INSTRUCTIONS.md`：共同研究・エージェント向けの運用メモ。
+
+## ベンチマーク系列の概要
+- **A 系列**：乾燥摩擦振動子（A1）やバウンシングボール（A2）など、非滑らかさやイベントを含む低次元力学系。粗いサンプリングでの挙動再現性を検証します。
+- **B 系列**：Ornstein–Uhlenbeck（B1）や二井戸 SDE（B2）など確率的システム。ノイズ存在下での統計量一致と長時間挙動の安定性を評価します。
+- **C 系列**：外部入力を持つ質量–ばね系（C1）や Duffing 強制振動など、未見入力への一般化性能と周波数応答を確認します。
+- **D 系列**：1 次元 Burgers（D1）、Kuramoto–Sivashinsky（D2）といった PDE の半離散 ODE。空間スペクトルやエネルギー指標で評価します。
+- **E 系列**：Lorenz-63 カオス（E1）、入力付き LTI 系（E2）、Burgers 拡張（E3）、乾燥摩擦コア（E4）など、Core-4 実験を中心とした比較用セット。長期統計や未見入力一般化を重視します。
+
+## モデルの追加方法
+
+`dynid_benchmark.models.base.Model` を継承し、`@register_model` デコレータでレジストリ登録します。以下は最小例です。
 
 ```python
 from dynid_benchmark.models.base import Model, register_model
@@ -34,24 +52,19 @@ from dynid_benchmark.models.base import Model, register_model
 @register_model
 class YourMethod(Model):
     name = "your_method"
+
     def fit(self, t, y, u=None):
-        # 学習処理
-        ...
+        ...  # 学習ロジック
+
     def predict_derivative(self, t, x, u=None):
-        # 連続時間ベクトル場 f_hat(x[,u]) を返す
-        return ...
+        return ...  # 連続時間ベクトル場 f_hat(x[, u])
 ```
 
-`--models your_method` で呼び出せます。
+登録後は `--models your_method` で実験ランナーから呼び出せます。実装例は `dynid_benchmark/models/`（SINDy-STLSQ, SINDy-PI, EDMD, Zero/MeanDerivative など）を参照してください。
 
-## 実装上の注意
-- 図は **matplotlib** のみ使用（seaborn 不要）。
-- 1 図 1 チャートに統一（論文図に貼りやすい）。
-
-## 構成
-- `dynid_benchmark/systems/`: 各ベンチマークの真値生成器（ODE/SDE/PDE）
-- `dynid_benchmark/models/`: 手法の実装とレジストリ
-- `dynid_benchmark/evaluation/`: 指標計算・保存
-- `dynid_benchmark/io/`: データ I/O, 可視化
-- `dynid_benchmark/runners/`: 実験ランナー
-- `exp/`: 実験ごとの YAML
+## 開発のヒント
+- 可能な限り純粋関数と明示的な設定を用い、副作用はランナーに閉じ込めてください。
+- Python ファイルを編集した際は `poetry run black .` で整形し、ドキュメントは原則として日本語で記述します。
+- 主要な変更前後には `poetry run pytest` を実行し、挙動退行をチェックします。
+- 探索的なノートブックやスクリプトは `exp/` あるいは専用のスクラッチディレクトリに配置してください。
+- `runs/` や `results/` に蓄積された大型ファイルは整理・アーカイブし、リポジトリを軽量に保ちます。
