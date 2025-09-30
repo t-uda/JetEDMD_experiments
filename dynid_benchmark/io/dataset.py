@@ -8,6 +8,7 @@ def split_traj(obs: Dict[str, np.ndarray], train: float, val: float, test: float
     i1 = int(N * train)
     i2 = int(N * (train + val))
     out = {}
+    # アンダースコアで始まるキーはメタデータなので除外し、指定比率で分割
     out["train"] = {
         k: (v[:i1] if isinstance(v, np.ndarray) and len(v) == N else v)
         for k, v in obs.items()
@@ -29,4 +30,4 @@ def split_traj(obs: Dict[str, np.ndarray], train: float, val: float, test: float
 def to_snr_db(y, snr_db, rng):
     var = np.var(y, axis=0) + 1e-12
     sigma = np.sqrt(var / (10 ** (snr_db / 10.0)))
-    return y + rng.normal(size=y.shape) * sigma
+    return y + rng.normal(size=y.shape) * sigma  # 所望の SNR を満たすノイズを加算

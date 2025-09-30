@@ -6,7 +6,7 @@ def finite_difference(y, t):
     dy = np.zeros_like(y)
     dt = np.diff(t)
     dt = np.clip(dt, 1e-12, None)
-    # central for interior, forward/backward for edges
+    # 内点は中心差分、端点は前進／後退差分で近似微分を計算
     for i in range(y.shape[1]):
         yi = y[:, i]
         dyi = dy[:, i]
@@ -20,9 +20,9 @@ def build_library(y, poly_order=3, include_sin_cos=False):
     N, d = y.shape
     Theta = [np.ones((N, 1))]
     names = ["1"]
-    # Polynomial terms up to order
+    # 指定次数までの多項式基底を全て列挙
     for p in range(1, poly_order + 1):
-        # all monomials of degree p
+        # 次数 p の全単項式を生成
         from itertools import combinations_with_replacement
 
         for combo in combinations_with_replacement(range(d), p):
@@ -41,7 +41,7 @@ def build_library(y, poly_order=3, include_sin_cos=False):
 
 
 def stlsq(Theta, dXdt, lam=0.1, max_iter=10):
-    # Sequentially thresholded least squares
+    # 逐次しきい値処理付き最小二乗法で疎な係数行列 Xi を推定
     Xi = np.linalg.lstsq(Theta, dXdt, rcond=None)[0]
     for _ in range(max_iter):
         small = np.abs(Xi) < lam
@@ -88,10 +88,11 @@ class SINDySTLSQ(Model):
         pad = win // 2
         ypad = np.pad(y, ((pad, pad), (0, 0)), mode="edge")
         sw = sliding_window_view(ypad, (win, y.shape[1]))[:, 0, :, :]
-        return np.mean(sw, axis=1)
+        return np.mean(sw, axis=1)  # エッジを複製した移動平均フィルタ
 
     def fit(self, t, y, u=None):
         y_use = self._smooth(y, self.smooth_window)
+        # 平滑化した系列から有限差分とライブラリ行列を構築
         dXdt = finite_difference(y_use, t)
         Theta, names = build_library(y_use, self.poly_order, self.include_sin_cos)
         Xi = stlsq(Theta, dXdt, lam=self.lam, max_iter=self.max_iter)

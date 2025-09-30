@@ -6,12 +6,13 @@ from .sindy_stlsq import build_library
 def scale_columns(arr: np.ndarray, eps: float = 1e-12):
     norms = np.linalg.norm(arr, axis=0)
     norms = np.where(norms < eps, 1.0, norms)
-    return arr / norms, norms
+    return arr / norms, norms  # 基底ごとのスケール差を吸収して数値安定性を高める
 
 
 def stlsq(
     theta: np.ndarray, targets: np.ndarray, lam: float, max_iter: int, ridge: float
 ):
+    # リッジ正則化を付与した逐次しきい値付き最小二乗で係数ベクトルを求める
     gram = theta.T @ theta + ridge * np.eye(theta.shape[1])
     coeffs = np.linalg.solve(gram, theta.T @ targets)
     for _ in range(max_iter):
@@ -74,10 +75,11 @@ class SINDyPI(Model):
         targets = []
         for i in range(n - w):
             j = i + w
-            targets.append(y[j] - y[i])
+            targets.append(y[j] - y[i])  # 積分窓の始端と終端の差分が左辺
             integ = np.zeros(theta_scaled.shape[1], dtype=float)
             for k in range(i, j):
                 dt = t[k + 1] - t[k]
+                # 台形則で Θ(x) を積分し右辺の離散化を構成
                 integ += 0.5 * (theta_scaled[k] + theta_scaled[k + 1]) * dt
             rows.append(integ)
 

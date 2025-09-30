@@ -3,12 +3,12 @@ import numpy as np
 
 def _embed(x, m, tau):
     """
-    Delay-coordinate embedding: R^N -> R^{N-(m-1)tau} by stacking delayed copies.
+    遅延座標埋め込み：遅延付きの写像で R^N -> R^{N-(m-1)tau} を構成する。
 
     Returns
     -------
     X_emb : ndarray, shape (M, m)
-        Embedded trajectory, M = N - (m-1)tau
+        埋め込み軌道。M = N - (m-1)tau。
     """
     N = len(x)
     M = N - (m - 1) * tau
@@ -22,36 +22,36 @@ def _embed(x, m, tau):
 
 def rosenstein_lmax(x, fs, m=6, tau=None, theiler=10, fit_range=(5, 50)):
     """
-    Rosenstein's method to estimate the largest Lyapunov exponent (L_max) from a scalar time series.
-    Ref: Rosenstein et al., Physica D 65 (1993) 117–134.
+    ローゼンスタイン法で最大リアプノフ指数 (L_max) をスカラー時系列から推定する。
+    参考: Rosenstein et al., Physica D 65 (1993) 117–134.
 
     Parameters
     ----------
     x : ndarray, shape (N,)
-        Scalar time series (use one state component, or a principal component).
+        スカラー時系列（単一状態や主成分など）。
     fs : float
-        Sampling frequency [Hz].
+        サンプリング周波数 [Hz]。
     m : int
-        Embedding dimension.
+        埋め込み次元。
     tau : int or None
-        Delay (in samples). If None, pick the smallest lag where autocorr < 1/e.
+        遅延（サンプル単位）。None の場合は自己相関が 1/e を下回る最小ラグを採用。
     theiler : int
-        Theiler window (temporal decorrelation window) to avoid trivial neighbors.
+        テイラー窓（近接点の排除幅）。
     fit_range : tuple (j_start, j_end)
-        Range of forward steps (in samples) over which we fit the slope of <log distance>.
+        平均対数距離の傾きをフィットするステップ範囲（サンプル単位）。
 
     Returns
     -------
     lmax : float
-        Estimated largest Lyapunov exponent [1/s].
+        推定された最大リアプノフ指数 [1/s]。
     j_axis : ndarray
-        Indices used for the regression (samples).
+        回帰に用いたステップ指標。
     y_mean : ndarray
-        Mean log-separation curve for diagnostics.
+        診断用の平均対数距離曲線。
     """
     x = np.asarray(x, dtype=float).ravel()
 
-    # Pick tau by autocorrelation crossing 1/e (if not provided)
+    # 遅延が未指定なら自己相関が 1/e を下回る最小ラグを採用
     if tau is None:
         ac = np.correlate(x - x.mean(), x - x.mean(), mode="full")
         ac = ac[ac.size // 2 :]
@@ -59,17 +59,17 @@ def rosenstein_lmax(x, fs, m=6, tau=None, theiler=10, fit_range=(5, 50)):
         tau = int(np.argmax(ac < 1 / np.e))
         tau = max(tau, 1)
 
-    # Build embedding
+    # 埋め込み軌道を構築
     X = _embed(x, m=m, tau=tau)  # (M, m)
     M = X.shape[0]
 
-    # For each point, find nearest neighbor with Theiler exclusion
+    # 各点に対しテイラー窓内を除外した最短距離の近傍を探索
     from numpy.linalg import norm
 
     dists = np.full(M, np.inf)
     idx_nn = np.full(M, -1, dtype=int)
     for i in range(M):
-        # Compute distances to all points except within theiler window
+        # テイラー窓外の候補点との距離を計算
         j = np.arange(M)
         mask = np.abs(j - i) > theiler
         if np.any(mask):
@@ -78,12 +78,12 @@ def rosenstein_lmax(x, fs, m=6, tau=None, theiler=10, fit_range=(5, 50)):
             dists[i] = d[k]
             idx_nn[i] = j[mask][k]
 
-    # Compute mean log separation over forward times j
+    # 前進ステップ j ごとに平均対数距離を算出
     j_start, j_end = fit_range
     j_axis = np.arange(j_start, j_end)
     y_log = []
     for j in j_axis:
-        # valid indices where i+j and nn_i + j are within range
+        # i+j と最近傍 idx_nn + j が範囲内に収まるもののみ評価
         mask = (np.arange(M) + j < M) & (idx_nn >= 0) & (idx_nn + j < M)
         if not np.any(mask):
             y_log.append(np.nan)
@@ -91,12 +91,12 @@ def rosenstein_lmax(x, fs, m=6, tau=None, theiler=10, fit_range=(5, 50)):
         sep = np.linalg.norm(
             X[mask][:, None, :] - X[idx_nn[mask] + j][:, None, :], axis=2
         ).squeeze()
-        # Avoid zeros
+        # ゼロ距離を避けるため最小値を制限
         sep = np.maximum(sep, 1e-15)
         y_log.append(np.mean(np.log(sep)))
     y_log = np.asarray(y_log)
 
-    # Linear regression y = a + b * (j / fs)
+    # y = a + b * (j / fs) の線形回帰で傾きを求める
     mask = np.isfinite(y_log)
     if np.sum(mask) < 3:
         return np.nan, j_axis, y_log

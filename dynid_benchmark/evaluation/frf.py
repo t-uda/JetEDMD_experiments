@@ -4,30 +4,28 @@ from scipy import signal
 
 def frf_welch(u, y, fs, nperseg=None, detrend="constant", window="hann", noverlap=None):
     """
-    Estimate Frequency Response Function (FRF) H(f) = S_yu(f) / S_uu(f) via Welch's method.
+    Welch 法で周波数応答関数 H(f) = S_yu(f) / S_uu(f) を推定する。
 
     Parameters
     ----------
     u : ndarray, shape (N,) or (N, m)
-        Input time series (single or multi-input). If multi-input, this returns
-        FRF for each input independently (no MIMO cross-talk removal).
+        入力時系列（単入力または多入力）。多入力の場合、入力間の相互影響は除去しない。
     y : ndarray, shape (N,) or (N, p)
-        Output time series.
+        出力時系列。
     fs : float
-        Sampling frequency [Hz] (fs = 1/Δt).
-    nperseg, detrend, window, noverlap : passed to scipy.signal.csd/welch
+        サンプリング周波数 [Hz]（fs = 1/Δt）。
+    nperseg, detrend, window, noverlap : scipy.signal.csd / welch へそのまま引き渡す引数。
 
     Returns
     -------
     f : ndarray
-        Frequency vector (Hz).
+        周波数ベクトル [Hz]。
     H : ndarray
-        Complex FRF array. If y is (N,) and u is (N,), shape is (F,).
-        If y is (N,p) and u is (N,m), shape is (F, p, m).
+        複素 FRF。y, u が単入力単出力なら (F,), 多入力多出力なら (F, p, m)。
     coh : ndarray
-        Magnitude-squared coherence γ^2(f) between u and y (same shape as |H|).
+        u と y のコヒーレンス γ^2(f)（|H| と同じ形状）。
     Syu, Suu : ndarray
-        Cross/auto power spectra (for diagnostics).
+        交差／自己パワースペクトル（診断用）。
     """
     u = np.atleast_2d(u)  # (m, N) if originally (N,)
     if u.shape[0] < u.shape[1]:  # heuristic: ensure shape (N, m)
@@ -73,7 +71,7 @@ def frf_welch(u, y, fs, nperseg=None, detrend="constant", window="hann", noverla
                 detrend=detrend,
                 window=window,
             )
-            H_cols.append(Puy / (Puu + 1e-15))
+            H_cols.append(Puy / (Puu + 1e-15))  # 数値的に安定化するため微小量を加算
             C_cols.append(Coh)
             Syu_cols.append(Puy)
             Suu_cols.append(Puu)
@@ -92,7 +90,7 @@ def frf_welch(u, y, fs, nperseg=None, detrend="constant", window="hann", noverla
 
 def bode_mag_phase(H, deg=True):
     """
-    Convert complex FRF to magnitude [dB] and phase [deg or rad].
+    複素 FRF から振幅（dB）と位相（deg または rad）を算出する。
     H : ndarray (...,)
     """
     mag_db = 20.0 * np.log10(np.maximum(np.abs(H), 1e-15))

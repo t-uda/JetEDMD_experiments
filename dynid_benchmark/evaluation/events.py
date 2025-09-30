@@ -3,30 +3,30 @@ import numpy as np
 
 def find_level_crossings(t, y, level=0.0):
     """
-    Detect times where y crosses a given level (default 0.0) using linear interpolation.
+    信号 y が指定レベル（デフォルト 0.0）を横切る時刻を線形補間で推定する。
 
     Parameters
     ----------
     t : ndarray (N,)
-        Time stamps (assumed increasing).
+        単調増加と仮定する時刻列。
     y : ndarray (N,) or (N, d)
-        Signal; for multi-dim, the first column y[:,0] is used.
+        観測信号。多次元の場合は y[:, 0] を判定に用いる。
     level : float
-        Crossing level.
+        交差判定するしきい値。
 
     Returns
     -------
     t_events : ndarray (K,)
-        Estimated event times (sub-sample accuracy by linear interpolation).
+        線形補間によりサブサンプル精度で推定された交差時刻。
     """
     yy = y[:, 0] if y.ndim == 2 else y
     s = yy - level
     sign = np.sign(s)
-    # sign changes between consecutive samples indicate a crossing
+    # 隣接サンプルで符号が変化している箇所を交差候補とみなす
     idx = np.where(sign[:-1] * sign[1:] < 0)[0]
     t_events = []
     for i in idx:
-        # Linear interpolation between (t[i], y[i]) and (t[i+1], y[i+1])
+        # 連続する 2 サンプル間を線形補間して交差時刻を推定
         t0, t1 = t[i], t[i + 1]
         y0, y1 = yy[i], yy[i + 1]
         if y1 == y0:
@@ -40,19 +40,21 @@ def find_level_crossings(t, y, level=0.0):
 
 def match_events(t_true, t_pred, tol=None):
     """
-    Greedy nearest-neighbor matching of predicted events to true events.
+    予測イベントと真値イベントを貪欲法で近傍マッチングする。
 
     Parameters
     ----------
     t_true : ndarray (K,)
+        真値イベント時刻。
     t_pred : ndarray (M,)
+        予測イベント時刻。
     tol : float or None
-        If not None, drop pairs with |Δt| > tol.
+        None 以外なら |Δt| > tol の組み合わせを破棄する。
 
     Returns
     -------
     pairs : list of (i_true, i_pred, dt)
-        Matches with signed time error dt = t_pred - t_true.
+        マッチした添字ペアと signed 誤差 dt = t_pred - t_true。
     """
     if len(t_true) == 0 or len(t_pred) == 0:
         return []
@@ -71,7 +73,7 @@ def match_events(t_true, t_pred, tol=None):
 
 def event_timing_metrics(t_true, t_pred, tol=None):
     """
-    Compute summary metrics for event timing errors.
+    イベント時刻誤差の要約統計量を計算する。
 
     Returns
     -------

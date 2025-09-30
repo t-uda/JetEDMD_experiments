@@ -10,7 +10,7 @@ def poly_lift(x, order=2, include_const=True):
     if include_const:
         Phi.append(np.ones((N, 1)))
         names.append("1")
-    # linear
+    # 1 次項の追加
     for j in range(d):
         Phi.append(x[:, j : j + 1])
         names.append(f"x{j}")
@@ -28,9 +28,7 @@ def poly_lift(x, order=2, include_const=True):
 
 @register_model
 class EDMD(Model):
-    """Discrete-time EDMD with polynomial dictionary.
-    Note: treats data as uniformly sampled; ignores inputs by default.
-    """
+    """多項式辞書を用いた離散時間 EDMD。データは等間隔サンプリングとみなし、入力は既定で無視する。"""
 
     name = "edmd"
 
@@ -43,26 +41,26 @@ class EDMD(Model):
         self._phi = None
 
     def fit(self, t, y, u=None):
-        # Build snapshot pairs (k -> k+1)
+        # 連続する状態の組 (k -> k+1) を構成して離散時間の線形化を表現
         X = y[:-1, :]
         Xp = y[1:, :]
         Z, _ = poly_lift(X, order=self.order)
         Zp, _ = poly_lift(Xp, order=self.order)
-        # Solve Z K ≈ Zp  (ridge)
+        # Z K ≈ Zp をリッジ回帰で解きコーシャン演算子 K を求める
         lam = self.ridge
         self.K = np.linalg.lstsq(
             Z.T @ Z + lam * np.eye(Z.shape[1]), Z.T @ Zp, rcond=None
         )[0]
-        # Decoder: y ≈ Z C
+        # 復元写像 C を最小二乗で計算し、リフト空間から元の状態に戻す
         self.C = np.linalg.lstsq(Z, X, rcond=None)[0]
         self._phi = lambda x: poly_lift(x[None, :], order=self.order)[0][0]
 
     def predict_derivative(self, t, x, u=None):
-        # EDMD is discrete; derivative not defined. Provide zero (unused).
+        # 離散モデルのため時間微分は定義せずゼロを返す（上位互換のための実装）
         return np.zeros_like(x)
 
     def rollout(self, t, x0, u=None):
-        # Discrete evolution per time step in t
+        # 与えられた時刻列をステップ数として解釈し、離散的に状態を伝搬
         n_steps = len(t)
         Y = np.zeros((n_steps, len(x0)), dtype=float)
         z = self._phi(x0)  # lifted

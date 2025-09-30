@@ -8,8 +8,8 @@ class OrnsteinUhlenbeck(DynamicalSystem):
         theta = p.get("theta", 1.0)
 
         def f(t, x):
-            return -theta * x
+            return -theta * x  # 線形復元力のみを持つ 1 次元 OU 過程
 
         rng = np.random.default_rng(seed)
-        x0 = np.array([rng.normal()])
+        x0 = np.array([rng.normal()])  # 平衡点周りのガウス初期条件
         return simulate_ode(lambda t, x: f(t, x), x0, T, dt_true)

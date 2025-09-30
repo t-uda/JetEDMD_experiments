@@ -3,7 +3,7 @@ from .base import DynamicalSystem
 
 
 class BouncingBall(DynamicalSystem):
-    """Hard or soft contact based on parameters: mode in {'hard','soft'}"""
+    """パラメータ mode に応じて硬い衝突／ソフトコンタクトを切り替えるモデル"""
 
     def simulate_true(self, T: float, dt_true: float, seed=None):
         p = self.params
@@ -26,17 +26,17 @@ class BouncingBall(DynamicalSystem):
 
         for i in range(1, N):
             if mode == "hard":
-                # simple symplectic Euler with bounce event handling
+                # シンプレクティック・オイラーで重力落下を更新し接触イベントを処理
                 v[i] = v[i - 1] - g * dt_true
                 y[i] = y[i - 1] + v[i] * dt_true
                 if y[i] < 0.0 and v[i] < 0.0:
-                    # linear interpolation to contact
+                    # 接触時刻を線形に補間し、反発係数を適用
                     alpha = y[i - 1] / (y[i - 1] - y[i] + 1e-12)
                     y[i] = 0.0
                     v_contact = v[i - 1] - g * (alpha * dt_true)
                     v[i] = -r * v_contact
             else:
-                # Soft-contact spring-damper when y<0
+                # y<0 の間はバネ・ダンパで地面とのソフトコンタクトを表現
                 a = -g
                 if y[i - 1] < 0.0:
                     a += -(ks / m) * (y[i - 1]) - (cs / m) * v[i - 1]

@@ -12,7 +12,7 @@ class Burgers1D(DynamicalSystem):
         x = np.linspace(0, L, Nx, endpoint=False)
         u0 = np.sin(2 * np.pi * x / L) + 0.5 * np.sin(np.pi * x / L)
 
-        # Periodic BC with central differences
+        # 周期境界条件を中央差分で離散化
         dx = L / Nx
 
         def dudx(u):
@@ -29,11 +29,13 @@ class Burgers1D(DynamicalSystem):
         for _ in range(Nsteps):
 
             def rhs(u_):
-                return -u_ * dudx(u_) + nu * d2udx2(u_)
+                return -u_ * dudx(u_) + nu * d2udx2(u_)  # 対流と粘性項を離散評価
 
             u1 = u + dt_true * rhs(u)
             u2 = 0.75 * u + 0.25 * (u1 + dt_true * rhs(u1))
-            u = (1.0 / 3.0) * u + (2.0 / 3.0) * (u2 + dt_true * rhs(u2))
+            u = (1.0 / 3.0) * u + (2.0 / 3.0) * (
+                u2 + dt_true * rhs(u2)
+            )  # 3 段 SSPRK(3,3)
             t += dt_true
             ts.append(t)
             Us.append(u.copy())

@@ -15,11 +15,11 @@ class DryFrictionOscillator(DynamicalSystem):
 
         def f(t, s):
             x, v = s
-            f_fric = mu * g * np.tanh(kappa * v)  # smooth sgn
+            f_fric = mu * g * np.tanh(kappa * v)  # 符号関数を滑らかに近似した摩擦力
             a = -(c / m) * v - (k / m) * x - f_fric
             return np.array([v, a])
 
         rng = np.random.default_rng(seed)
-        x0 = rng.uniform(0.5, 1.0)
+        x0 = rng.uniform(0.5, 1.0)  # 小振幅からランダムに初期変位を設定
         v0 = 0.0
         return simulate_ode(f, np.array([x0, v0]), T, dt_true)

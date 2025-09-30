@@ -14,6 +14,7 @@ class DuffingForced(DynamicalSystem):
         def f(t, s):
             x, v = s
             a = -delta * v - alpha * x - beta * (x**3) + gamma * np.cos(Omega * t)
+            # 減衰 δ、復元力 α・β、外力 γ cos(Ωt) を含むダフィング方程式
             return np.array([v, a])
 
         x0 = np.array([0.0, 0.0])

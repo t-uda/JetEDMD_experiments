@@ -4,22 +4,22 @@ from scipy import signal
 
 def psd_welch(x, fs, nperseg=None, detrend="constant", window="hann", noverlap=None):
     """
-    Power Spectral Density (Welch).
+    Welch 法によるパワースペクトル密度 (PSD) 推定を行う。
 
     Parameters
     ----------
     x : ndarray, shape (N,) or (N, d)
-        Time series (possibly multi-channel). Each channel is processed independently.
+        単一もしくは多チャンネルの時系列。各チャンネルを独立に処理する。
     fs : float
-        Sampling frequency [Hz].
-    Other params are passed to scipy.signal.welch.
+        サンプリング周波数 [Hz]。
+    その他の引数は scipy.signal.welch に転送される。
 
     Returns
     -------
     f : ndarray (F,)
-        Frequencies (Hz).
+        周波数ベクトル [Hz]。
     Pxx : ndarray (F,) or (F, d)
-        PSD estimates per channel.
+        チャンネルごとの PSD 推定値。
     """
     x = np.atleast_2d(x)
     if x.shape[0] < x.shape[1]:  # ensure shape (N, d)

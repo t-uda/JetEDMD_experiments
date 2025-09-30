@@ -4,7 +4,7 @@ from .base import DynamicalSystem, simulate_ode
 
 
 class Lorenz63(DynamicalSystem):
-    """Lorenz-63 chaotic system with optional configurable parameters."""
+    """古典的なローレンツ63 系（パラメータを外部から調整可能）"""
 
     def simulate_true(self, T: float, dt_true: float, seed=None):
         p = self.params
@@ -26,5 +26,5 @@ class Lorenz63(DynamicalSystem):
                 1.0 + 0.1 * rng.standard_normal(),
                 1.0 + 0.1 * rng.standard_normal(),
             ]
-        )
+        )  # アトラクタ近傍にランダムに初期化
         return simulate_ode(f, x0, T, dt_true)

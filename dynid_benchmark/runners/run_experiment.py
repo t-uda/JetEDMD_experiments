@@ -48,7 +48,7 @@ def main():
     ensure_models_imported()
     os.makedirs(args.outdir, exist_ok=True)
 
-    # instantiate system
+    # 設定ファイルから対象システムと時間設定を抽出
     SystemCls = SYSTEMS[cfg.system]
     Tfast = cfg.Tfast
     seeds = cfg.seeds or [101]
@@ -86,7 +86,7 @@ def main():
                 )
                 os.makedirs(outdir, exist_ok=True)
 
-                # Simulate true
+                # 高精度な真値軌道を生成し観測系列へサンプリング
                 system = SystemCls(cfg.params)
                 true = system.simulate_true(total_T, cfg.dt_true, seed=seed)
                 obs = system.sample_observations(
@@ -100,7 +100,7 @@ def main():
                     seed=seed,
                 )
 
-                # Split
+                # 観測データを学習／検証／評価に切り分け
                 splits = split_traj(
                     obs, cfg.splits["train"], cfg.splits["val"], cfg.splits["test"]
                 )
@@ -111,7 +111,7 @@ def main():
                 y_test = splits["test"]["y"]
                 u_test = splits["test"].get("u")
 
-                # Save raw data
+                # 再現実験用に訓練・テストデータを保存
                 np.savez(
                     os.path.join(outdir, "data_train.npz"),
                     t=t_train,
@@ -125,7 +125,7 @@ def main():
                     u=u_test if u_test is not None else [],
                 )
 
-                # Train & evaluate models
+                # 各モデルを訓練しロールアウト誤差を評価
                 for mkey in args.models.split(","):
                     mkey = mkey.strip()
                     if mkey not in MODEL_REGISTRY:
@@ -135,10 +135,10 @@ def main():
                     model = ModelCls()
                     model.fit(t_train, y_train, u_train)
 
-                    # Rollout from test initial condition on test times
+                    # テスト系列の初期状態から roll-out を行い予測軌道を取得
                     x0 = y_test[0]
                     y_pred = model.rollout(t_test, x0, u_test)
-                    # Metrics
+                    # メトリクスを計算し JSON で保存
                     metrics = {
                         "rollout_rmse": float(np.sqrt(np.mean((y_test - y_pred) ** 2))),
                         "n_test": int(len(t_test)),
@@ -146,7 +146,7 @@ def main():
                         "model": mkey,
                     }
                     save_metrics(os.path.join(outdir, f"metrics_{mkey}.json"), metrics)
-                    # Plot
+                    # ロールアウトの比較図を生成
                     plot_rollout(
                         t_test,
                         y_test,

@@ -4,7 +4,7 @@ import numpy as np
 
 
 class Model(ABC):
-    """Unified interface"""
+    """動的モデルの共通インターフェース"""
 
     name: str = "base"
 
@@ -24,7 +24,7 @@ class Model(ABC):
     def rollout(
         self, t: np.ndarray, x0: np.ndarray, u: Optional[np.ndarray] = None
     ) -> np.ndarray:
-        # Simple RK4 using predict_derivative
+        # predict_derivative で定義されるベクトル場を時間グリッド上で RK4 積分
         def f(ti, xi, ui):
             return self.predict_derivative(ti, xi, ui)
 

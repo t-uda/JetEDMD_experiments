@@ -22,9 +22,9 @@ def build_poly(y, order=3, include_const=True):
 @register_model
 class ImplicitSINDy(Model):
     """
-    Simplified implicit-SINDy: Solve nullspace of [Theta(X) | dXdt_j] v ≈ 0
-    for each component j, then convert to explicit form if possible:
-      v = [xi; alpha], derivative ≈ - (Theta xi) / alpha
+    簡略化した implicit-SINDy。
+    各成分 j について [Theta(X) | dXdt_j] v ≈ 0 の零空間を特異値分解で求め、
+    v = [xi; alpha] から可能であれば微分項を - (Theta xi) / alpha として陽形式に変換する。
     """
 
     name = "implicit_sindy"
@@ -38,7 +38,7 @@ class ImplicitSINDy(Model):
         self.Theta_names = None
 
     def fit(self, t, y, u=None):
-        # numerical derivative is still used, but implicit solves a homogeneous system
+        # 内部では数値微分を算出しつつ、同次方程式の零空間を利用して係数を推定
         N, d = y.shape
         dt = np.diff(t)
         dY = np.zeros_like(y)
@@ -50,12 +50,12 @@ class ImplicitSINDy(Model):
         Xi = np.zeros((nfeat, d))
         for j in range(d):
             A = np.concatenate([Theta, dY[:, j : j + 1]], axis=1)  # (N, nfeat+1)
-            # SVD: smallest right singular vector
+            # 特異値分解で最小特異値に対応する右特異ベクトルを取得し、零空間方向を求める
             U, S, Vt = np.linalg.svd(A, full_matrices=False)
             v = Vt[-1]  # (nfeat+1,)
             alpha = v[-1]
             if abs(alpha) < self.eps:
-                # fallback to explicit regression
+                # 比例係数が極端に小さい場合は陽的な線形回帰にフォールバック
                 beta, *_ = np.linalg.lstsq(Theta, dY[:, j], rcond=None)
                 Xi[:, j] = beta
             else:

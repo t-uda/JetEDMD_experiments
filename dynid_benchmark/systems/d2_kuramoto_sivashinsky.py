@@ -9,19 +9,19 @@ class KuramotoSivashinsky(DynamicalSystem):
         Nx = p.get("Nx", 128)
         rng = np.random.default_rng(seed)
 
-        # Spectral grid
+        # フーリエスペクトル格子と線形演算子を構築
         x = np.linspace(0, L, Nx, endpoint=False)
         k = 2 * np.pi * np.fft.fftfreq(Nx, d=L / Nx)
         ik = 1j * k
         Lk = -(k**2) - (k**4)  # linear operator in Fourier space
 
-        # ETDRK4 coefficients
+        # ETDRK4（指数時間差分 RK4）の係数をあらかじめ計算
         E = np.exp(Lk * dt_true)
         E2 = np.exp(Lk * dt_true / 2.0)
         M = 16
         r = np.exp(1j * np.pi * (np.arange(1, M + 1) - 0.5) / M)
         Lk_mat = Lk[:, None] * np.ones((Nx, M))
-        # Avoid singularities with small eps in denominators
+        # 分母がゼロになるのを避けるため小さな ε を加える
         eps = 1e-14
         Q = dt_true * np.mean(
             (np.exp(Lk_mat * (dt_true / 2.0)) - 1.0) / (Lk_mat + eps), axis=1
@@ -52,7 +52,7 @@ class KuramotoSivashinsky(DynamicalSystem):
             axis=1,
         )
 
-        # Initial condition: small random field
+        # 初期条件：小さな乱数場から発展開始
         u = 0.1 * rng.standard_normal(Nx)
         v = np.fft.fft(u)
         t = 0.0
@@ -61,14 +61,16 @@ class KuramotoSivashinsky(DynamicalSystem):
 
         Nsteps = int(np.floor(T / dt_true))
         for _ in range(Nsteps):
-            Nv = -0.5j * k * np.fft.fft(np.real(np.fft.ifft(v)) ** 2)
+            Nv = (
+                -0.5j * k * np.fft.fft(np.real(np.fft.ifft(v)) ** 2)
+            )  # 非線形項のスペクトル表現
             a = E2 * v + Q * Nv
             Na = -0.5j * k * np.fft.fft(np.real(np.fft.ifft(a)) ** 2)
             b = E2 * v + Q * Na
             Nb = -0.5j * k * np.fft.fft(np.real(np.fft.ifft(b)) ** 2)
             c = E2 * a + Q * (2 * Nb - Nv)
             Nc = -0.5j * k * np.fft.fft(np.real(np.fft.ifft(c)) ** 2)
-            v = E * v + (f1 * Nv + 2 * f2 * (Na + Nb) + f3 * Nc)
+            v = E * v + (f1 * Nv + 2 * f2 * (Na + Nb) + f3 * Nc)  # ETDRK4 更新式
             u = np.real(np.fft.ifft(v))
             t += dt_true
             ts.append(t)

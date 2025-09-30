@@ -1,5 +1,5 @@
-# Minimal Neural ODE baseline using PyTorch (optional dependency).
-# If torch is not available, the model will raise a clear error on fit().
+# PyTorch を用いた最小限の Neural ODE ベースライン（任意依存性）
+# torch が利用できない場合は fit() 時に明示的なエラーを送出
 import numpy as np
 from .base import Model, register_model
 
@@ -29,7 +29,7 @@ if TORCH_OK:
         def forward(self, x):
             return self.net(x)
 
-else:  # pragma: no cover - exercised only when torch unavailable
+else:  # pragma: no cover - torch が使えない環境のみで実行
 
     class MLP:  # type: ignore[override]
         def __init__(self, *_, **__):
@@ -58,7 +58,7 @@ class NeuralODETorch(Model):
         self.lr = lr
         self.iters = iters
         self.weight_decay = weight_decay
-        self.batch = batch  # 0 = full-batch
+        self.batch = batch  # 0 の場合は全データを一括学習
         self.model = None
         self.with_input = False
 
@@ -68,6 +68,7 @@ class NeuralODETorch(Model):
                 f"PyTorch is required for NeuralODE but not available: {_TORCH_ERR}"
             )
         self.with_input = u is not None and len(u) == len(y)
+        # 学習デバイスを自動選択し、入力次元を系の状態＋入力で設定
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         d = y.shape[1]
         in_dim = d + (u.shape[1] if self.with_input else 0)
@@ -94,6 +95,7 @@ class NeuralODETorch(Model):
             return self.model(inp)
 
         def rollout_times(tt, x0, uu):
+            # PyTorch テンソル上で RK4 により時間発展を計算
             x = [x0]
             for i in range(1, len(tt)):
                 dt = tt[i] - tt[i - 1]
@@ -103,6 +105,7 @@ class NeuralODETorch(Model):
                 k2 = f(tt[i - 1] + 0.5 * dt, xi + 0.5 * dt * k1, ui)
                 k3 = f(tt[i - 1] + 0.5 * dt, xi + 0.5 * dt * k2, ui)
                 k4 = f(tt[i - 1] + dt, xi + dt * k3, ui)
+                # 4 次の RK 法でニューラルネットが定義するベクトル場を積分
                 x_next = xi + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
                 x.append(x_next)
             return torch.stack(x, dim=0)
@@ -114,7 +117,7 @@ class NeuralODETorch(Model):
             loss = torch.mean((yhat - yy) ** 2)
             loss.backward()
             opt.step()
-            # (optional) could add early-stopping with patience
+            # TODO: ここで patience 付き早期終了などを検討すると良い
 
         self._device = device
         self._tt = tt  # not strictly needed
@@ -122,7 +125,7 @@ class NeuralODETorch(Model):
     def predict_derivative(self, t, x, u=None):
         if self.model is None:
             raise RuntimeError("Model not fitted.")
-        # one-step derivative on CPU using torch.no_grad
+        # torch.no_grad 下で 1 ステップ分のベクトル場を推論
         import torch
 
         self.model.eval()
