@@ -1,3 +1,7 @@
+.DS_Store
+.matplotlib_cache/
+runs*/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
