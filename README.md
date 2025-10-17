@@ -17,16 +17,17 @@ poetry install
 poetry run pytest -q
 ```
 
-2. 実験の起動例（A1 κ スイープ、EDMD + ベースライン Zero モデル）：
+2. 実験の起動例（A1 κ スイープ、PyKoopman-EDMD + ベースライン Zero モデル）：
 
 ```bash
 poetry run python -m dynid_benchmark.runners.run_experiment \
   --config exp/A1_kappa_sweep.yaml \
-  --models edmd,zero \
+  --models pykoopman_edmd,zero \
   --outdir runs
 ```
 
 生成された成果物は `runs/<exp_id>/<tag>/` に保存され、メトリクス（`metrics_*.json`）、ロールアウト図（`rollout_*.png`）、シリアライズ済みデータ（`data_*.npz`）などを含みます。`--time` でシミュレーション時間の上書き、`--models` に複数モデルをカンマ区切りで指定できます。
+PyKoopman 系モデルが学習に失敗した際は `error_pykoopman_*.txt` が同ディレクトリに出力され、エラーの詳細を確認できます。
 
 ## プロジェクト構成
 - `dynid_benchmark/`：真値システム、モデル実装、評価指標、I/O、ランナー等のコアライブラリ。
@@ -84,6 +85,14 @@ class YourMethod(Model):
 ```
 
 登録後は `--models your_method` で実験ランナーから呼び出せます。実装例は `dynid_benchmark/models/`（SINDy-STLSQ, SINDy-PI, EDMD, Zero/MeanDerivative など）を参照してください。
+
+## PyKoopman アダプタの利用
+
+`pykoopman` をラップしたモデルとして `pykoopman_edmd`（制御なし）と `pykoopman_edmdc`（制御あり）を提供しています。いずれも内部で PyKoopman の `Koopman` + `Polynomial` 観測を利用し、等間隔サンプリングが満たされない場合は学習を中断して `error_pykoopman_*.txt` に詳細を残します。
+
+- 例：`--models pykoopman_edmd,zero`
+- 制御入力を含む実験では `--models pykoopman_edmdc,zero` を指定し、YAML 側で `u` が生成される設定を選択してください。
+- 単体テストは `tests/test_models_pykoopman.py` にまとめており、PyKoopman 未導入環境では自動的にスキップされます。
 
 ## 外部ライブラリ版 SINDy の利用
 

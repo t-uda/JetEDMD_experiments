@@ -37,7 +37,7 @@ def main():
     ap.add_argument("--config", required=True, help="Path to YAML")
     ap.add_argument("--outdir", default="runs", help="Output directory")
     ap.add_argument(
-        "--models", default="edmd,zero", help="Comma-separated model keys"
+        "--models", default="pykoopman_edmd,zero", help="Comma-separated model keys"
     )
     ap.add_argument(
         "--time", default=None, help="Override total simulation time (seconds)"
@@ -133,11 +133,19 @@ def main():
                         continue
                     ModelCls = MODEL_REGISTRY[mkey]
                     model = ModelCls()
-                    model.fit(t_train, y_train, u_train)
+                    try:
+                        model.fit(t_train, y_train, u_train)
+                        # テスト系列の初期状態から roll-out を行い予測軌道を取得
+                        x0 = y_test[0]
+                        y_pred = model.rollout(t_test, x0, u_test)
+                    except Exception as err:  # pragma: no cover - runtime guard
+                        if mkey.startswith("pykoopman"):
+                            err_path = os.path.join(outdir, f"error_{mkey}.txt")
+                            with open(err_path, "w", encoding="utf-8") as fh:
+                                fh.write(str(err))
+                        print(f"[ERROR] model '{mkey}' failed: {err}")
+                        continue
 
-                    # テスト系列の初期状態から roll-out を行い予測軌道を取得
-                    x0 = y_test[0]
-                    y_pred = model.rollout(t_test, x0, u_test)
                     # メトリクスを計算し JSON で保存
                     metrics = {
                         "rollout_rmse": float(np.sqrt(np.mean((y_test - y_pred) ** 2))),

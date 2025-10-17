@@ -33,40 +33,28 @@
 
 ### PyKoopman
 
-* **用途**：既存の **EDMD/EDMDc** 教育実装を置換し、離散時間 one-step 予測でテンプレの `predict_next` 経路に統合。
+* **用途**：`pykoopman_edmd` / `pykoopman_edmdc` を通じて PyKoopman 実装の EDMD/EDMDc を利用し、教育実装との精度比較や制御入力付きケースを検証する。
 * **注意**：
 
   * ルート環境は **SciPy ≤1.11.2 + torch 2.1** でロックしている。SINDy-PI（`cvxpy` 依存）など SciPy ≥1.13 を要求するケースとは環境を分離する。
   * **等間隔サンプリング**前提（本テンプレの EDMD と同じ制約）；ジッタ・欠測がある設定では**自動でスキップ**または**事前リサンプリング**。([pykoopman.readthedocs.io][2])
   * ドキュメント推奨の開発セット（GPU 対応含む）は任意。Poetry では CPU 版のみ導入する想定。([pykoopman.readthedocs.io][2])
-  * `torch` 系依存は CPU 版ホイールを `[[tool.poetry.source]]` で補完している。GPU 版が必要な場合は別プロファイルを検討する。
+  * `torch` 系依存は CPU 版ホイールを標準リポジトリから取得している。GPU 版が必要な場合は別プロファイルを検討する。
 
-#### PyKoopman 導入メモ（最小構成）
+#### PyKoopman 実装メモ
 
 1. **依存管理**
-   - ルート `pyproject.toml` で `pykoopman 1.1.0` と付随する Koopman スタック（`pydmd`, CPU 版 `torch` など）を固定済み。`envs/pykoopman` では同構成をコンテナ/CI 用に再現する。
+   - ルート `pyproject.toml` で `pykoopman 1.1.0` と付随する Koopman スタックを固定済み。`envs/pykoopman` では同構成をコンテナ/CI 用に再現する。
    - `cvxpy` を導入する場合（SINDy-PI 利用時）は SciPy を ≥1.13 に戻す必要があり、PyKoopman と同居できないため `pysindy` グループや別環境で切り替える。
-2. **アダプタ実装**
-   - `dynid_benchmark/models/pykoopman_adapter.py`（仮）を新設し、`Model` を継承した `PyKoopmanEDMDModel` / `PyKoopmanEDMDcModel` を定義。
-   - `fit` で `pykoopman.regression.EDMD` / `EDMDc` を初期化。辞書関数は既存の多項式＋Fourier を流用（`PolynomialLibrary` 相当を PyKoopman の `Observables` API で再現）。
-   - 差分時間 `dt` が一定でない場合は早期例外。`predict_next` を実装し、ランナーの離散モデル経路を使用。
-   - コントロール付き/なしを同一クラスで扱うなら `u` の有無で `EDMD` ↔ `EDMDc` を切り替える。
+2. **アダプタ構成**
+   - `dynid_benchmark/models/pykoopman_adapter.py` で `PyKoopmanEDMD` / `PyKoopmanEDMDc` を提供。多項式観測（`Polynomial`）＋ `Koopman(regressor=EDMD/EDMDc)` を利用し、等間隔チェックや制御入力の整合性検証を実装済み。
+   - 学習失敗時はランナーが `error_pykoopman_*.txt` を保存し、ログから原因を追跡できる。
 3. **ランナー統合**
-   - `dynid_benchmark/models/__init__.py` と `run_experiment.py` のデフォルト候補へモデルキーを追加（例：`pykoopman_edmd`）。
-   - 実験 YAML（特に C1 系）に `pykoopman_edmd` を追加する際は、入力有無とサンプリング設定が一致するよう注意。
-4. **エラーハンドリング**
-   - 等間隔チェック失敗時は `RuntimeError` で `error_pykoopman*.txt` にメッセージを残す。
-   - import ガードで未インストール時は明確な案内を表示（`poetry add pykoopman`）。
-
-##### テスト計画
-
-- `tests/test_models.py` に PyKoopman 用のパラメタ化ケースを追加。
-  * 入力なし短尺データで `fit→rollout` が例外なく完了するか。
-  * 入力あり（`EDMDc` 相当）で `u` を渡し、`predict_next` が動作するか。
-  * 不等間隔サンプルを渡して期待通りエラーになるか（`xfail` または `pytest.raises`）。
-- `tests/test_smoke.py` で import 可能かを確認し、未導入環境では `pytest.skip`。
-- `poetry run pytest -q` を CI やローカルで回し、PyKoopman 追加後の実行時間をモニタ。必要なら `slow` マークで制御。
-- 可能であれば `exp/A1_kappa_sweep.yaml` などを用いた簡易ラン（`--models pykoopman_edmd,zero`）を README か手順に追記し、ローカル検証のルーチン化を図る。
+   - `run_experiment.py` の既定モデルを `pykoopman_edmd,zero` に変更済み。制御付きケースでは `--models pykoopman_edmdc,zero` を利用し、`exp/` YAML 側で入力系列を生成する。
+   - YAML カスタムを追加する際はサンプリング設定と制御入力の長さが整合しているか確認する。
+4. **テスト**
+   - `tests/test_models_pykoopman.py` で EDMD/EDMDc の回帰精度と不等間隔エラーをカバー。PyKoopman 未導入環境では `importorskip` により自動スキップ。
+   - 追加の長期ロールアウトやノイズ混入ケースは今後の拡張候補。
 
 ### PyDMD
 
@@ -92,9 +80,10 @@
    - `poetry run pytest` で回帰を取り、NumPy 2.0 互換パッチが効いているかを継続確認すること。
    - `cvxpy` なし環境では `pysindy_pi` を自動スキップするため、テストの `xfail` 条件とドキュメントを同期させること。
    - 新規 YAML を追加する場合は `optimizer`, `differentiation_method` を明示し、再現可能性を担保する。
-2. **PyKoopman（継続タスク）**：離散モデル `predict_next` 互換のアダプタを `dynid_benchmark/models/pykoopman_adapter.py`（仮）として実装。
-   - **タスク**：import ガード付きアダプタ → `tests/test_models.py` へパラメトリックテスト → `--models pykoopman_edmd` 追加。
-   - **留意点**：等間隔サンプリング検証を再利用し、欠測ケースでは `error_pykoopman*.txt` を確実に吐く。依存はルート環境に導入済み。
+2. **PyKoopman（フォローアップ）**：アダプタ・テストは実装済み。追加で以下を検討する。
+   - 多項式観測の正規化／条件数モニタリングを導入し、数値不安定時のログを強化する。
+   - C1 系の入力有り YAML に `pykoopman_edmdc` を組み込み、FRF/Bode など入力一般化評価を追加する。
+   - 長期ロールアウトやノイズ混入ケースのベンチマークを追加し、結果をドキュメント化する。
 3. **PyDMD（任意導入）**：軽量比較用として `dynid_benchmark/models/pydmd_adapter.py`（仮）を追加。
    - **タスク**：Poetry へ依存追加（必要であれば extras で切り分け）。`predict_next` ベースで DMD/EDMD をサポートし、図表には "DMD/EDMD(alt)" を追加。
    - **留意点**：モード可視化など重たい機能はオプション扱い。既存 CI に影響を与えない構成で導入する。

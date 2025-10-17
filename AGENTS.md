@@ -31,7 +31,7 @@ This document captures working practices and project-specific context so that co
 - Results (metrics, rollouts, data) appear under `runs/<exp_id>/<tag>/`; archive or clean up as needed.
 
 ## External Libraries / 追加ライブラリ
-- `pykoopman` を既定依存として導入済み。Koopman 系（EDMD/EDMDc 等）の実験は標準環境で直接実行できる。
+- `pykoopman` を既定依存として導入済み。`pykoopman_edmd` / `pykoopman_edmdc` モデルを通じて Koopman 系（EDMD/EDMDc）ベースラインを利用でき、失敗時は `error_pykoopman_*.txt` に詳細が保存される。
 - `pysindy` は Poetry グループ `pysindy` として任意導入。SINDy-PI（`cvxpy` 依存）と PyKoopman は SciPy 要件が異なるため、目的に応じて環境を切り替える。
 - 追加ライブラリは作業前に `NEW_LIBRARIES.md` のロードマップを確認し、Poetry ロックファイルへの影響を把握してから導入すること。
 

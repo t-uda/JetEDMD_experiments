@@ -14,6 +14,7 @@ _DEFAULT_MODEL_MODULES = (
     "sindy_implicit",
     "neural_ode_torch",
     "pysindy_adapter",
+    "pykoopman_adapter",
 )
 
 _LOADED = False

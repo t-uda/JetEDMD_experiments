@@ -96,8 +96,9 @@ z_{k+1} = A z_k ;(+; B u_k),\quad x_k \approx C z_k, \quad z_k=\Phi(x_k)
 * [ ] 連続時間生成子近似（(\logm) で (A\approx e^{G\Delta t}) → (G\approx \frac{1}{\Delta t}\log(A))）※ SciPy 依存のため将来オプション
 * [ ] C1-1（PRBS 学習→SINE/Chirp 汎化）向けに **FRF/Bode** の評価ユーティリティ
 
-**外部ライブラリ（PyKoopman）**：`pykoopman` は標準依存として導入済み。`predict_next` 互換のアダプタ実装時には既存の等間隔サンプリング検証を再利用し、失敗時は `error_pykoopman*.txt` を吐く運用に合わせる。
+**外部ライブラリ（PyKoopman）**：`pykoopman` を利用した `pykoopman_edmd` / `pykoopman_edmdc` アダプタを実装済み。等間隔サンプリングを検証し、失敗時はランナーが `error_pykoopman_*.txt` を出力する。PyKoopman 専用テストは `tests/test_models_pykoopman.py` にまとめており、依存が無い環境では自動スキップされる。
 `envs/pykoopman` プロファイルはルート環境と同構成を固定した再現用プロファイルとして維持する。
+**今後の検討**：観測行列の正規化や条件数モニタリング、C1 系入力付き YAML による FRF/Bode 評価、ノイズ混入ケースのベンチマーク追加を順次進める。
 
 ---
 
