@@ -24,15 +24,15 @@
 
 1. **レイアウト確認 & 依存導入**
 
-   * `src/dynid_benchmark_template/` 以下にパッケージと `exp/*.yaml` があることを確認
-   * `pip install -r requirements.txt`（最小依存：`numpy, matplotlib, pyyaml`）
+   * `dynid_benchmark/` 配下のコアパッケージと `exp/*.yaml` が揃っていることを確認
+   * `poetry install` で依存を解決（最小依存：`numpy`, `matplotlib`, `pyyaml`, `pysindy`。追加ライブラリは `poetry add` で管理）
 2. **スモークテスト**
 
-   * `pytest -q` による import と最小実行の確認（短時間設定）
+   * `poetry run pytest -q` による import と最小実行の確認（短時間設定）
 3. **データ生成・実行動作確認**
 
    * 例：`A1_kappa_sweep.yaml` を SINDy/EDMD/PI/implicit で一通り回す
-     `python -m dynid_benchmark.runners.run_experiment --config exp/A1_kappa_sweep.yaml --models sindy_stlsq,edmd,sindy_pi,sindy_implicit,zero --outdir runs`
+     `poetry run python -m dynid_benchmark.runners.run_experiment --config exp/A1_kappa_sweep.yaml --models sindy_stlsq,edmd,sindy_pi,sindy_implicit,zero --outdir runs`
 4. **モデル別 TODO 消化（下記 §3）**
 
    * STLSQ の平滑オプション, EDMD 条件数監視, PI の可変ステップ重み, implicit の頑健化 など
@@ -74,6 +74,8 @@
 * [ ] ライブラリ次数・`sin/cos` 有無の**小規模グリッド探索** CLI
 * [ ] 係数スパース性（L0/L1 比率）を `metrics` に追加
 
+**補足（PySINDy アダプタ）**：`dynid_benchmark/models/pysindy_adapter.py` で外部ライブラリ版 SINDy（`pysindy`）と SINDy-PI（`pysindy_pi`）を提供済み。教育実装との比較は `--models` で切替、ハイパ設定は YAML で明示すること。NumPy 2.0 互換パッチや `cvxpy` 依存の有無をテスト (`poetry run pytest`) と合わせて維持する。
+
 ---
 
 ### 3.2 EDMD / EDMDc（離散）`edmd.py`
@@ -93,6 +95,8 @@ z_{k+1} = A z_k ;(+; B u_k),\quad x_k \approx C z_k, \quad z_k=\Phi(x_k)
 * [ ] 連続時間生成子近似（(\logm) で (A\approx e^{G\Delta t}) → (G\approx \frac{1}{\Delta t}\log(A))）※ SciPy 依存のため将来オプション
 * [ ] C1-1（PRBS 学習→SINE/Chirp 汎化）向けに **FRF/Bode** の評価ユーティリティ
 
+**外部ライブラリ TODO（PyKoopman）**：`pykoopman` を `poetry add` で導入し、`predict_next` 互換のアダプタを追加予定。等間隔サンプリング検証は既存ロジックを再利用し、失敗時は `error_pykoopman*.txt` を吐く運用に合わせる。
+
 ---
 
 ### 3.3 SINDy-PI（積分形式）`sindy_pi.py`
@@ -109,6 +113,8 @@ z_{k+1} = A z_k ;(+; B u_k),\quad x_k \approx C z_k, \quad z_k=\Phi(x_k)
 
 * [ ] 可変 (\Delta t_k) での**重み付け回帰**（大きなステップの影響制御）
 * [ ] **積分ウィンドウ**（複ステップ台形/Simpson）オプションと比較
+
+**補足（PySINDy-PI）**：外部ライブラリ版は `pysindy_pi` モデルとして提供済み。`cvxpy` 未導入環境では自動スキップするため、必要に応じて `poetry add cvxpy` を併用し、実験 YAML で最適化器設定を明記する。
 
 ---
 
@@ -170,7 +176,7 @@ z_{k+1} = A z_k ;(+; B u_k),\quad x_k \approx C z_k, \quad z_k=\Phi(x_k)
 
 ```bash
 # A1 乾燥摩擦：複数モデル比較
-python -m dynid_benchmark.runners.run_experiment \
+poetry run python -m dynid_benchmark.runners.run_experiment \
   --config exp/A1_kappa_sweep.yaml \
   --models sindy_stlsq,edmd,sindy_pi,sindy_implicit,zero \
   --outdir runs
@@ -205,14 +211,14 @@ python -m dynid_benchmark.runners.run_experiment \
 ## 1) セットアップ
 
 ```bash
-python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+poetry install
+poetry run pytest -q  # 初回スモーク
 ```
 
 ## 2) 最小実行（例：A1 × 各モデル）
 
 ```bash
-python -m dynid_benchmark.runners.run_experiment \
+poetry run python -m dynid_benchmark.runners.run_experiment \
   --config exp/A1_kappa_sweep.yaml \
   --models sindy_stlsq,edmd,sindy_pi,sindy_implicit,zero \
   --outdir runs
@@ -227,8 +233,7 @@ python -m dynid_benchmark.runners.run_experiment \
 ## 3) スモークテスト
 
 ```bash
-pip install pytest
-pytest -q
+poetry run pytest -q
 ```
 
 ## 4) よくある注意
@@ -248,4 +253,3 @@ pytest -q
 ## 6) アクセシビリティ
 
 * 図は**線種×マーカー**で識別（色指定なし）。`io/viz.py` のスタイルに従うこと。
-

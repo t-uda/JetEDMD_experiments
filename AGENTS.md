@@ -29,3 +29,8 @@ This document captures working practices and project-specific context so that co
 - Execute experiments with `poetry run python -m dynid_benchmark.runners.run_experiment --config <yaml> --models <comma-separated models> --outdir runs`.
 - Configuration files reside in `exp/`; adjust runtime parameters there before launching.
 - Results (metrics, rollouts, data) appear under `runs/<exp_id>/<tag>/`; archive or clean up as needed.
+
+## External Libraries / 追加ライブラリ
+- `pysindy` は既定依存として導入済み。モデルキー `pysindy` / `pysindy_pi`（要 `cvxpy`）で呼び出し可能。
+- `cvxpy` は任意依存。`pysindy_pi` を使う場合に限り `poetry add cvxpy` 等で追加する。
+- `pykoopman`, `pydmd` は次タスク候補。導入前に `NEW_LIBRARIES.md` のロードマップを確認すること。
