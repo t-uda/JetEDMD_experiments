@@ -6,7 +6,7 @@
 - A1〜E4 の系列（ODE / SDE / PDE / ハイブリッド）をカバーする代表ベンチマークを同梱。
 - `exp/` 配下の YAML で「データ生成 → 観測化 → 学習 → 評価 → 図出力」までを一括実行。
 - `dynid_benchmark.models.register_model` による軽量なプラグイン API で手法を追加可能。
-- 実行環境は Poetry で管理し、依存関係は `numpy`, `pyyaml`, `matplotlib` に加え外部ライブラリ **PySINDy** を標準採用（SINDy-PI を使う場合は別途 `cvxpy` を導入した専用環境が必要）。
+- 実行環境は Poetry で管理し、依存関係は `numpy`, `pyyaml`, `matplotlib` に加え **PyKoopman / PyDMD / torch** を標準採用（SINDy 系を使う場合はオプション `pysindy` グループを有効化）。
 
 ## クイックスタート
 0. 必要要件：Python 3.10 以上、Poetry がインストール済みであること。
@@ -17,12 +17,12 @@ poetry install
 poetry run pytest -q
 ```
 
-2. 実験の起動例（A1 κ スイープ、PySINDy + ベースライン Zero モデル）：
+2. 実験の起動例（A1 κ スイープ、EDMD + ベースライン Zero モデル）：
 
 ```bash
 poetry run python -m dynid_benchmark.runners.run_experiment \
   --config exp/A1_kappa_sweep.yaml \
-  --models pysindy,zero \
+  --models edmd,zero \
   --outdir runs
 ```
 
@@ -42,8 +42,9 @@ Singularity などで依存セットを切り替えやすくするため、`envs
 
 | プロファイル | Python | 主な依存 | 用途 |
 | --- | --- | --- | --- |
-| `envs/pysindy` | `>=3.10,<4.0` | 最新版 SciPy 系 + PySINDy | 標準実験、教育実装との比較 |
-| `envs/pykoopman` | `3.10–3.11` | SciPy ≤1.11.2 + PyKoopman 1.1 + torch 2.1 | Koopman 系ベンチマーク |
+| プロジェクトルート | `3.10–3.11` | SciPy ≤1.11.2 + PyKoopman 1.1 + torch 2.1 | 標準（Koopman 系） |
+| `envs/pysindy` | `>=3.10,<4.0` | 最新版 SciPy 系 + PySINDy | SINDy 系比較、SINDy-PI（`cvxpy`）検証 |
+| `envs/pykoopman` | `3.10–3.11` | ルートと同構成（固定ロック） | コンテナ / CI 用の再現プロファイル |
 
 ### 利用例（PyKoopman スタック）
 
@@ -86,7 +87,7 @@ class YourMethod(Model):
 
 ## 外部ライブラリ版 SINDy の利用
 
-`pysindy` パッケージをラップしたモデルを追加済みです。`pysindy`（標準 SINDy）が既定モデルとして登録され、`--models pysindy,zero` などで呼び出せます。積分形式の `pysindy_pi` は追加依存 `cvxpy`（SciPy ≥1.13）が必要で、PyKoopman 1.1 系（SciPy ≤1.11.2）とは同一環境で共存できません。粗サンプリングでの高精度化が必要な際には別環境で `cvxpy` を整えた上で `--models pysindy_pi,zero` に切り替え、失敗時は教育実装 `sindy_pi` の併用も検討してください。教育実装（`sindy_stlsq`, `sindy_pi`）との比較は `--models` で手動切り替えできます。
+`pysindy` パッケージをラップしたモデルを追加済みです。利用時は `poetry install --with pysindy` で依存を追加するか、`envs/pysindy` プロファイルを使用してください。積分形式の `pysindy_pi` は追加依存 `cvxpy`（SciPy ≥1.13）が必要で、PyKoopman 1.1 系（SciPy ≤1.11.2）とは同一環境で共存できません。粗サンプリングでの高精度化が必要な際には別環境で `cvxpy` を整えた上で `--models pysindy_pi,zero` に切り替え、失敗時は教育実装 `sindy_pi` の併用も検討してください。教育実装（`sindy_stlsq`, `sindy_pi`）との比較は `--models` で手動切り替えできます。
 
 ## 開発のヒント
 - 可能な限り純粋関数と明示的な設定を用い、副作用はランナーに閉じ込めてください。

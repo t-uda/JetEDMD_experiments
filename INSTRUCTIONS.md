@@ -25,7 +25,7 @@
 1. **レイアウト確認 & 依存導入**
 
    * `dynid_benchmark/` 配下のコアパッケージと `exp/*.yaml` が揃っていることを確認
-   * `poetry install` で依存を解決（最小依存：`numpy`, `matplotlib`, `pyyaml`, `pysindy`）。Singularity 等で環境を切り替える場合は `envs/pysindy` または `envs/pykoopman` の `pyproject.toml` で `poetry install` を行う。
+   * `poetry install` で依存を解決（標準依存：PyKoopman スタック一式《SciPy ≤1.11.2, torch 2.1 系, pydmd など》）。SINDy 系の比較が必要な場合は `poetry install --with pysindy` もしくは `envs/pysindy` の `pyproject.toml` で `poetry install` を行う。
 2. **スモークテスト**
 
    * `poetry run pytest -q` による import と最小実行の確認（短時間設定）
@@ -75,7 +75,7 @@
 * [ ] 係数スパース性（L0/L1 比率）を `metrics` に追加
 
 **補足（PySINDy アダプタ）**：`dynid_benchmark/models/pysindy_adapter.py` で外部ライブラリ版 SINDy（`pysindy`）と SINDy-PI（`pysindy_pi`）を提供済み。教育実装との比較は `--models` で切替、ハイパ設定は YAML で明示すること。SINDy-PI を有効化する際は `cvxpy` を別環境で追加し、PyKoopman など SciPy ≤1.11 系依存とは共存しない点に注意。
-`envs/pysindy` の Poetry プロファイルで最新 SciPy 系のスタックを再現できる。
+`poetry install --with pysindy` で追加導入するか、`envs/pysindy` の Poetry プロファイルで最新 SciPy 系のスタックを再現できる。
 
 ---
 
@@ -96,8 +96,8 @@ z_{k+1} = A z_k ;(+; B u_k),\quad x_k \approx C z_k, \quad z_k=\Phi(x_k)
 * [ ] 連続時間生成子近似（(\logm) で (A\approx e^{G\Delta t}) → (G\approx \frac{1}{\Delta t}\log(A))）※ SciPy 依存のため将来オプション
 * [ ] C1-1（PRBS 学習→SINE/Chirp 汎化）向けに **FRF/Bode** の評価ユーティリティ
 
-**外部ライブラリ TODO（PyKoopman）**：`pykoopman` を `poetry add` で導入し、`predict_next` 互換のアダプタを追加予定。等間隔サンプリング検証は既存ロジックを再利用し、失敗時は `error_pykoopman*.txt` を吐く運用に合わせる。
-`envs/pykoopman` プロファイルで SciPy ≤1.11.2 / torch 2.1 系の環境を切り分ける想定。
+**外部ライブラリ（PyKoopman）**：`pykoopman` は標準依存として導入済み。`predict_next` 互換のアダプタ実装時には既存の等間隔サンプリング検証を再利用し、失敗時は `error_pykoopman*.txt` を吐く運用に合わせる。
+`envs/pykoopman` プロファイルはルート環境と同構成を固定した再現用プロファイルとして維持する。
 
 ---
 

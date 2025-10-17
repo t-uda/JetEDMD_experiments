@@ -2,8 +2,8 @@
 
 このディレクトリは数値実験用の **依存セット別 Poetry プロジェクト** をまとめる場所です。
 
-- `pysindy/`: 最新 NumPy/SciPy 系（2024 時点）＋ PySINDy を用いる標準環境。
-- `pykoopman/`: PyKoopman v1.1.0 が要求する旧世代スタック（SciPy ≤1.11.2, PyTorch 2.1 系など）向けの環境。PySINDy-PI の `cvxpy` などとは分離して利用します。
+- `pysindy/`: 最新 NumPy/SciPy 系（2024 時点）＋ PySINDy を用いるオプション環境。SINDy-PI（`cvxpy`）など PyKoopman と両立しない検証用。
+- `pykoopman/`: ルート環境と同一の PyKoopman スタック（SciPy ≤1.11.2, torch 2.1 系など）を固定化した再現プロファイル。PySINDy 系とは分離して利用します。
 
 各サブディレクトリは独立した `pyproject.toml` / `poetry.lock` を持ち、以下の用途で利用します。
 

@@ -31,10 +31,11 @@ This document captures working practices and project-specific context so that co
 - Results (metrics, rollouts, data) appear under `runs/<exp_id>/<tag>/`; archive or clean up as needed.
 
 ## External Libraries / 追加ライブラリ
-- `pysindy` は既定依存として導入済み。モデルキー `pysindy` / `pysindy_pi`（後者は `cvxpy` 環境が必要）で呼び出し可能。
-- `cvxpy` と `pykoopman` は依存する SciPy のバージョンが異なる（`cvxpy`: ≥1.13, `pykoopman 1.1`: ≤1.11.2）。両者を同じ環境で使うことは困難なため、用途に応じて環境を切り替える。
+- `pykoopman` を既定依存として導入済み。Koopman 系（EDMD/EDMDc 等）の実験は標準環境で直接実行できる。
+- `pysindy` は Poetry グループ `pysindy` として任意導入。SINDy-PI（`cvxpy` 依存）と PyKoopman は SciPy 要件が異なるため、目的に応じて環境を切り替える。
 - 追加ライブラリは作業前に `NEW_LIBRARIES.md` のロードマップを確認し、Poetry ロックファイルへの影響を把握してから導入すること。
 
 ## Environment Profiles
-- `envs/pysindy`: 最新スタック（NumPy/SciPy 2024 系）＋ PySINDy 用。通常の実験はこちらで実施。
-- `envs/pykoopman`: SciPy ≤1.11.2 / torch 2.1 系で PyKoopman を利用するための専用プロファイル。Python 3.10/3.11 を前提に Singularity 内でロックファイルを生成する。
+- ルート Poetry プロジェクト: SciPy ≤1.11.2 + PyKoopman 1.1 + torch 2.1 系の標準スタック。Koopman 系実験はこちらを既定とする。
+- `envs/pysindy`: 最新スタック（NumPy/SciPy 2024 系）＋ PySINDy 用。SINDy-PI（`cvxpy` 使用）など PyKoopman と両立しない検証向け。
+- `envs/pykoopman`: ルート環境と同等構成を再現するための固定プロファイル。コンテナや CI での再現性確保に利用。
