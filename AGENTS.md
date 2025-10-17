@@ -31,6 +31,10 @@ This document captures working practices and project-specific context so that co
 - Results (metrics, rollouts, data) appear under `runs/<exp_id>/<tag>/`; archive or clean up as needed.
 
 ## External Libraries / 追加ライブラリ
-- `pysindy` は既定依存として導入済み。モデルキー `pysindy` / `pysindy_pi`（要 `cvxpy`）で呼び出し可能。
-- `cvxpy` は任意依存。`pysindy_pi` を使う場合に限り `poetry add cvxpy` 等で追加する。
-- `pykoopman`, `pydmd` は次タスク候補。導入前に `NEW_LIBRARIES.md` のロードマップを確認すること。
+- `pysindy` は既定依存として導入済み。モデルキー `pysindy` / `pysindy_pi`（後者は `cvxpy` 環境が必要）で呼び出し可能。
+- `cvxpy` と `pykoopman` は依存する SciPy のバージョンが異なる（`cvxpy`: ≥1.13, `pykoopman 1.1`: ≤1.11.2）。両者を同じ環境で使うことは困難なため、用途に応じて環境を切り替える。
+- 追加ライブラリは作業前に `NEW_LIBRARIES.md` のロードマップを確認し、Poetry ロックファイルへの影響を把握してから導入すること。
+
+## Environment Profiles
+- `envs/pysindy`: 最新スタック（NumPy/SciPy 2024 系）＋ PySINDy 用。通常の実験はこちらで実施。
+- `envs/pykoopman`: SciPy ≤1.11.2 / torch 2.1 系で PyKoopman を利用するための専用プロファイル。Python 3.10/3.11 を前提に Singularity 内でロックファイルを生成する。

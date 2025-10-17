@@ -6,7 +6,7 @@
 - A1〜E4 の系列（ODE / SDE / PDE / ハイブリッド）をカバーする代表ベンチマークを同梱。
 - `exp/` 配下の YAML で「データ生成 → 観測化 → 学習 → 評価 → 図出力」までを一括実行。
 - `dynid_benchmark.models.register_model` による軽量なプラグイン API で手法を追加可能。
-- 実行環境は Poetry で管理し、依存関係は `numpy`, `pyyaml`, `matplotlib` に加え外部ライブラリ **PySINDy** を標準採用（SINDy-PI を使う場合は別途 `cvxpy` が必要）。
+- 実行環境は Poetry で管理し、依存関係は `numpy`, `pyyaml`, `matplotlib` に加え外部ライブラリ **PySINDy** を標準採用（SINDy-PI を使う場合は別途 `cvxpy` を導入した専用環境が必要）。
 
 ## クイックスタート
 0. 必要要件：Python 3.10 以上、Poetry がインストール済みであること。
@@ -33,7 +33,29 @@ poetry run python -m dynid_benchmark.runners.run_experiment \
 - `exp/`：実験設定 YAML。一連のパラメータ調整はここで行います。
 - `results/`, `runs*/`：実験結果の保存先。大きな成果物はリポジトリにコミットしないよう注意。
 - `tests/`：回帰テスト・スモークテスト。
+- `envs/`：Poetry で管理する環境プロファイル（PySINDy 用 / PyKoopman 用）。
 - `AGENTS.md`, `INSTRUCTIONS.md`：共同研究・エージェント向けの運用メモ。
+
+## 環境プロファイルの切り替え
+
+Singularity などで依存セットを切り替えやすくするため、`envs/` 以下に用途別の Poetry プロジェクトを用意しています。
+
+| プロファイル | Python | 主な依存 | 用途 |
+| --- | --- | --- | --- |
+| `envs/pysindy` | `>=3.10,<4.0` | 最新版 SciPy 系 + PySINDy | 標準実験、教育実装との比較 |
+| `envs/pykoopman` | `3.10–3.11` | SciPy ≤1.11.2 + PyKoopman 1.1 + torch 2.1 | Koopman 系ベンチマーク |
+
+### 利用例（PyKoopman スタック）
+
+```bash
+cd envs/pykoopman
+poetry env use /usr/bin/python3.10        # PyTorch 2.1 が対応する Python を指定
+POETRY_VIRTUALENVS_IN_PROJECT=true poetry lock
+POETRY_VIRTUALENVS_IN_PROJECT=true poetry install
+poetry run pytest -q                      # 任意: テスト確認
+```
+
+PySINDy 用の `envs/pysindy` でも同様に `poetry install` を実行します。どちらの環境でもリポジトリ本体 (`dynid_benchmark`) はパス依存 `{ path = "../.." }` で共有されるため、ソースコードは一箇所で保守できます。
 
 ## ベンチマーク系列の概要
 - **A 系列**：乾燥摩擦振動子（A1）やバウンシングボール（A2）など、非滑らかさやイベントを含む低次元力学系。粗いサンプリングでの挙動再現性を検証します。
@@ -64,7 +86,7 @@ class YourMethod(Model):
 
 ## 外部ライブラリ版 SINDy の利用
 
-`pysindy` パッケージをラップしたモデルを追加済みです。`pysindy`（標準 SINDy）が既定モデルとして登録され、`--models pysindy,zero` などで呼び出せます。積分形式の `pysindy_pi` は追加依存 `cvxpy` に加え、PySINDy 本体の実装都合で一部ケースでシミュレーションが不安定です（テストでは xfail 扱い）。粗サンプリングでの高精度化が必要な際には `poetry add cvxpy` 等で依存関係を整えた上で `--models pysindy_pi,zero` に切り替え、失敗時は教育実装 `sindy_pi` の併用も検討してください。教育実装（`sindy_stlsq`, `sindy_pi`）との比較は `--models` で手動切り替えできます。
+`pysindy` パッケージをラップしたモデルを追加済みです。`pysindy`（標準 SINDy）が既定モデルとして登録され、`--models pysindy,zero` などで呼び出せます。積分形式の `pysindy_pi` は追加依存 `cvxpy`（SciPy ≥1.13）が必要で、PyKoopman 1.1 系（SciPy ≤1.11.2）とは同一環境で共存できません。粗サンプリングでの高精度化が必要な際には別環境で `cvxpy` を整えた上で `--models pysindy_pi,zero` に切り替え、失敗時は教育実装 `sindy_pi` の併用も検討してください。教育実装（`sindy_stlsq`, `sindy_pi`）との比較は `--models` で手動切り替えできます。
 
 ## 開発のヒント
 - 可能な限り純粋関数と明示的な設定を用い、副作用はランナーに閉じ込めてください。

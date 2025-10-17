@@ -25,7 +25,7 @@
 1. **レイアウト確認 & 依存導入**
 
    * `dynid_benchmark/` 配下のコアパッケージと `exp/*.yaml` が揃っていることを確認
-   * `poetry install` で依存を解決（最小依存：`numpy`, `matplotlib`, `pyyaml`, `pysindy`。追加ライブラリは `poetry add` で管理）
+   * `poetry install` で依存を解決（最小依存：`numpy`, `matplotlib`, `pyyaml`, `pysindy`）。Singularity 等で環境を切り替える場合は `envs/pysindy` または `envs/pykoopman` の `pyproject.toml` で `poetry install` を行う。
 2. **スモークテスト**
 
    * `poetry run pytest -q` による import と最小実行の確認（短時間設定）
@@ -74,7 +74,8 @@
 * [ ] ライブラリ次数・`sin/cos` 有無の**小規模グリッド探索** CLI
 * [ ] 係数スパース性（L0/L1 比率）を `metrics` に追加
 
-**補足（PySINDy アダプタ）**：`dynid_benchmark/models/pysindy_adapter.py` で外部ライブラリ版 SINDy（`pysindy`）と SINDy-PI（`pysindy_pi`）を提供済み。教育実装との比較は `--models` で切替、ハイパ設定は YAML で明示すること。NumPy 2.0 互換パッチや `cvxpy` 依存の有無をテスト (`poetry run pytest`) と合わせて維持する。
+**補足（PySINDy アダプタ）**：`dynid_benchmark/models/pysindy_adapter.py` で外部ライブラリ版 SINDy（`pysindy`）と SINDy-PI（`pysindy_pi`）を提供済み。教育実装との比較は `--models` で切替、ハイパ設定は YAML で明示すること。SINDy-PI を有効化する際は `cvxpy` を別環境で追加し、PyKoopman など SciPy ≤1.11 系依存とは共存しない点に注意。
+`envs/pysindy` の Poetry プロファイルで最新 SciPy 系のスタックを再現できる。
 
 ---
 
@@ -96,6 +97,7 @@ z_{k+1} = A z_k ;(+; B u_k),\quad x_k \approx C z_k, \quad z_k=\Phi(x_k)
 * [ ] C1-1（PRBS 学習→SINE/Chirp 汎化）向けに **FRF/Bode** の評価ユーティリティ
 
 **外部ライブラリ TODO（PyKoopman）**：`pykoopman` を `poetry add` で導入し、`predict_next` 互換のアダプタを追加予定。等間隔サンプリング検証は既存ロジックを再利用し、失敗時は `error_pykoopman*.txt` を吐く運用に合わせる。
+`envs/pykoopman` プロファイルで SciPy ≤1.11.2 / torch 2.1 系の環境を切り分ける想定。
 
 ---
 
@@ -114,7 +116,7 @@ z_{k+1} = A z_k ;(+; B u_k),\quad x_k \approx C z_k, \quad z_k=\Phi(x_k)
 * [ ] 可変 (\Delta t_k) での**重み付け回帰**（大きなステップの影響制御）
 * [ ] **積分ウィンドウ**（複ステップ台形/Simpson）オプションと比較
 
-**補足（PySINDy-PI）**：外部ライブラリ版は `pysindy_pi` モデルとして提供済み。`cvxpy` 未導入環境では自動スキップするため、必要に応じて `poetry add cvxpy` を併用し、実験 YAML で最適化器設定を明記する。
+**補足（PySINDy-PI）**：外部ライブラリ版は `pysindy_pi` モデルとして提供済み。`cvxpy` を導入した環境でのみ有効（SciPy ≥1.13 が必要）。PyKoopman 1.1.0（SciPy ≤1.11.2 依存）と同居させる場合は環境を分けるか、どちらかを無効化する。
 
 ---
 

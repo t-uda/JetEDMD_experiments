@@ -2,7 +2,7 @@
 
 ## 導入状況（2025-10-17 時点）
 
-- **導入済み**：**PySINDy 1.7 系**（`pyproject.toml` に追記済み、`dynid_benchmark/models/pysindy_adapter.py` としてアダプタ実装）。標準 SINDy は `pysindy` モデルとして、SINDy-PI は任意依存 `cvxpy` ありで `pysindy_pi` として登録済み。既定モデルは `pysindy` に切り替え済み。 ([pysindy.readthedocs.io][1])
+- **導入済み**：**PySINDy 1.7 系**（`pyproject.toml` に追記済み、`dynid_benchmark/models/pysindy_adapter.py` としてアダプタ実装）。標準 SINDy は `pysindy` モデルとして登録済み。SINDy-PI は `cvxpy` を追加導入した環境でのみ利用可能（`pyproject.toml` からは除外済み）。 ([pysindy.readthedocs.io][1])
 - **次タスク**：**PyKoopman**（EDMD/EDMDc/Koopman Operator）。`predict_next` ベースの離散モデルとしてアダプション予定。 ([pykoopman.readthedocs.io][2])
 - **選択導入**：**PyDMD**（DMD/EDMD 系ベースライン）。Koopman 系比較用途で必要なら追加。 ([pydmd.github.io][3])
 
@@ -27,7 +27,7 @@
 
   * **差分微分**が前提の設定では粗サンプリング時に脆い → SINDy-PI（積分形式）を粗サンプル既定候補として `pysindy_pi` で提供。([pysindy.readthedocs.io][4])
   * 最適化器や微分器の選択（SR3/Smoothed FD など）で性能が変わるため、**実験 YAML 側でハイパ表示**を推奨。([pysindy.readthedocs.io][5])
-  * 追加最適化（SR3/L0/ベイズ）や凸最適化系は **追加依存（例：`cvxpy`）** が必要。CI では軽量設定を既定にし、任意依存は `extras` 扱いで記録。
+  * 追加最適化（SR3/L0/ベイズ）や凸最適化系は **追加依存（例：`cvxpy`）** が必要。`cvxpy` は SciPy ≥1.13 を要求するため、PyKoopman（SciPy ≤1.11.2 依存）と同居させる場合は環境を分けること。
   * `pysindy` 本体で `numpy.math` 利用が残っているため、NumPy 2.0 互換パッチ（`np.math = math`）を入れている。将来バージョンアップ時には再確認が必要。
 
 ### PyKoopman
@@ -37,7 +37,38 @@
 
   * **等間隔サンプリング**前提（本テンプレの EDMD と同じ制約）；ジッタ・欠測がある設定では**自動でスキップ**または**事前リサンプリング**。([pykoopman.readthedocs.io][2])
   * ドキュメント推奨の開発セット（GPU 対応含む）は任意。Poetry では CPU 版のみ導入する想定。([pykoopman.readthedocs.io][2])
-  * 追加依存（`cvxpy`, `torch` 等）が必要な最適化モジュールはスコープ外。EDMD/EDMDc の既定コンフィグが安定して走る範囲で採用。
+  * 追加依存（`torch`, `cvxpy` など）を要求する機能が多いため、Poetry への一括導入は慎重に行う。PyKoopman 1.1.0 自体が **SciPy ≤1.11.2** を必須とし、`torch` もビルド環境依存が大きい。
+
+#### PyKoopman 導入メモ（最小構成）
+
+1. **依存管理**
+   - `pykoopman 1.1.0` は **SciPy (>1.6, ≤1.11.2)** と CPU 版 `torch` を依存として要求する。既存環境（NumPy 2.x / SciPy 1.15 / cvxpy 1.7.3）とは競合するため、Poetry への直接追加は失敗する。
+   - 対応案：
+     - `pykoopman` 専用のサブ環境（例：`poetry env use` で仮想環境を複製し、`poetry add --lock pykoopman^1.1` を実行）を作る。
+     - もしくは Pipenv/venv など別管理で PyKoopman 実験系を分離し、ベース環境との混在を避ける。
+   - 本リポジトリでは `envs/pykoopman` に専用の `pyproject.toml` を配置し、Singularity 等で個別にロックを生成する方針。
+   - `cvxpy` を導入する場合（SINDy-PI 利用時）は SciPy を ≥1.13 に戻す必要があり、PyKoopman と同居できない。
+2. **アダプタ実装**
+   - `dynid_benchmark/models/pykoopman_adapter.py`（仮）を新設し、`Model` を継承した `PyKoopmanEDMDModel` / `PyKoopmanEDMDcModel` を定義。
+   - `fit` で `pykoopman.regression.EDMD` / `EDMDc` を初期化。辞書関数は既存の多項式＋Fourier を流用（`PolynomialLibrary` 相当を PyKoopman の `Observables` API で再現）。
+   - 差分時間 `dt` が一定でない場合は早期例外。`predict_next` を実装し、ランナーの離散モデル経路を使用。
+   - コントロール付き/なしを同一クラスで扱うなら `u` の有無で `EDMD` ↔ `EDMDc` を切り替える。
+3. **ランナー統合**
+   - `dynid_benchmark/models/__init__.py` と `run_experiment.py` のデフォルト候補へモデルキーを追加（例：`pykoopman_edmd`）。
+   - 実験 YAML（特に C1 系）に `pykoopman_edmd` を追加する際は、入力有無とサンプリング設定が一致するよう注意。
+4. **エラーハンドリング**
+   - 等間隔チェック失敗時は `RuntimeError` で `error_pykoopman*.txt` にメッセージを残す。
+   - import ガードで未インストール時は明確な案内を表示（`poetry add pykoopman`）。
+
+##### テスト計画
+
+- `tests/test_models.py` に PyKoopman 用のパラメタ化ケースを追加。
+  * 入力なし短尺データで `fit→rollout` が例外なく完了するか。
+  * 入力あり（`EDMDc` 相当）で `u` を渡し、`predict_next` が動作するか。
+  * 不等間隔サンプルを渡して期待通りエラーになるか（`xfail` または `pytest.raises`）。
+- `tests/test_smoke.py` で import 可能かを確認し、未導入環境では `pytest.skip`。
+- `poetry run pytest -q` を CI やローカルで回し、PyKoopman 追加後の実行時間をモニタ。必要なら `slow` マークで制御。
+- 可能であれば `exp/A1_kappa_sweep.yaml` などを用いた簡易ラン（`--models pykoopman_edmd,zero`）を README か手順に追記し、ローカル検証のルーチン化を図る。
 
 ### PyDMD
 
