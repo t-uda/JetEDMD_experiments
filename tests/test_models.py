@@ -92,4 +92,3 @@ def test_sindy_pi_requires_sufficient_window_samples():
     model = SINDyPI(window_len=5)
     with pytest.raises(ValueError):
         model.fit(t, y)
-

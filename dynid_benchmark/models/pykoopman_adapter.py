@@ -86,7 +86,9 @@ class _PyKoopmanBase(Model):
 
     # -- helpers -----------------------------------------------------------------
     def _build_observables(self) -> Polynomial:
-        return Polynomial(degree=self.cfg.poly_order, include_bias=self.cfg.include_bias)
+        return Polynomial(
+            degree=self.cfg.poly_order, include_bias=self.cfg.include_bias
+        )
 
     def _build_regressor(self):
         if self.with_control:
@@ -116,7 +118,9 @@ class _PyKoopmanBase(Model):
                 raise ValueError("制御入力付きモデルには u が必須です")
             U = _to_2d(u)
             if len(U) != len(X):
-                raise ValueError("制御入力 u の長さは状態系列と一致している必要があります")
+                raise ValueError(
+                    "制御入力 u の長さは状態系列と一致している必要があります"
+                )
             U = U[:-1]
         elif u is not None:
             # 制御なしモデルに制御が渡された場合は警告を出すより明示的に無視する
