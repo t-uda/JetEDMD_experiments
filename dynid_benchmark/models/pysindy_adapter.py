@@ -28,7 +28,8 @@ except Exception:  # pragma: no cover - optional dependency guard
 
 
 # NumPy 2.0 で np.math が削除されたため PySINDy 互換のため再導入
-if getattr(np, "math", None) is None:
+# DeprecationWarning を避けるため属性アクセスではなく dict を参照する
+if "math" not in vars(np):
     np.math = math  # type: ignore[attr-defined]
 
 

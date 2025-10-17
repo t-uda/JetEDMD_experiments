@@ -21,7 +21,7 @@ optht = "0.2.0"
 prettytable = "3.9.0"
 torch = "2.1.0"
 lightning = "2.0.9"
-setuptools = "^80.9.0"
+setuptools = ">=65,<81"
 
 [tool.poetry.group.pysindy.dependencies]
 pysindy = "^1.7"
