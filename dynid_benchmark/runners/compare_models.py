@@ -2,6 +2,7 @@ import argparse
 import os
 import time
 from collections import defaultdict
+from importlib import import_module
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -9,30 +10,40 @@ import numpy as np
 from ..config import load_yaml
 from ..evaluation.metrics import save_metrics
 from ..io.dataset import split_traj
-from ..io.viz import plot_model_comparison, plot_model_comparison_timeseries
 from ..models import ensure_models_imported
 from ..models.base import MODEL_REGISTRY
-from ..systems.a1_dry_friction import DryFrictionOscillator
-from ..systems.a2_bouncing_ball import BouncingBall
-from ..systems.b1_ou import OrnsteinUhlenbeck
-from ..systems.b2_doublewell import DoubleWellSDE
-from ..systems.c1_lti_mass_spring import MassSpringInput
-from ..systems.c1_duffing import DuffingForced
-from ..systems.d1_burgers import Burgers1D
-from ..systems.d2_kuramoto_sivashinsky import KuramotoSivashinsky
-from ..systems.lorenz63 import Lorenz63
 
+if os.environ.get("JETEDMD_DISABLE_PLOTS", "").lower() in {"1", "true", "yes"}:
+    plot_model_comparison = None
+    plot_model_comparison_timeseries = None
+else:
+    from ..io.viz import plot_model_comparison, plot_model_comparison_timeseries
 SYSTEMS = {
-    "dry_friction_oscillator": DryFrictionOscillator,
-    "bouncing_ball": BouncingBall,
-    "ou": OrnsteinUhlenbeck,
-    "doublewell": DoubleWellSDE,
-    "mass_spring_input": MassSpringInput,
-    "duffing_forced": DuffingForced,
-    "burgers1d": Burgers1D,
-    "kuramoto_sivashinsky": KuramotoSivashinsky,
-    "lorenz63": Lorenz63,
+    "dry_friction_oscillator": (
+        "dynid_benchmark.systems.a1_dry_friction",
+        "DryFrictionOscillator",
+    ),
+    "bouncing_ball": ("dynid_benchmark.systems.a2_bouncing_ball", "BouncingBall"),
+    "ou": ("dynid_benchmark.systems.b1_ou", "OrnsteinUhlenbeck"),
+    "doublewell": ("dynid_benchmark.systems.b2_doublewell", "DoubleWellSDE"),
+    "mass_spring_input": (
+        "dynid_benchmark.systems.c1_lti_mass_spring",
+        "MassSpringInput",
+    ),
+    "duffing_forced": ("dynid_benchmark.systems.c1_duffing", "DuffingForced"),
+    "burgers1d": ("dynid_benchmark.systems.d1_burgers", "Burgers1D"),
+    "kuramoto_sivashinsky": (
+        "dynid_benchmark.systems.d2_kuramoto_sivashinsky",
+        "KuramotoSivashinsky",
+    ),
+    "lorenz63": ("dynid_benchmark.systems.lorenz63", "Lorenz63"),
 }
+
+
+def _resolve_system(system_key: str):
+    module_path, class_name = SYSTEMS[system_key]
+    module = import_module(module_path)
+    return getattr(module, class_name)
 
 
 def _prepare_observations(
@@ -43,7 +54,7 @@ def _prepare_observations(
     snr_db: float,
     seed: int,
 ) -> Tuple[Dict, Dict]:
-    SystemCls = SYSTEMS[system_key]
+    SystemCls = _resolve_system(system_key)
     system = SystemCls(cfg.params)
     true = system.simulate_true(total_T, cfg.dt_true, seed=seed)
     obs = system.sample_observations(
@@ -78,7 +89,7 @@ def main():
     ap.add_argument("--outdir", default="runs", help="Directory for outputs")
     ap.add_argument(
         "--models",
-        default="pykoopman_edmd,zero",
+        default="edmd,pykoopman_edmd,zero",
         help="Comma separated list of model keys registered in MODEL_REGISTRY",
     )
     ap.add_argument(
@@ -229,7 +240,7 @@ def main():
                     results.append(metrics)
                     predictions[mkey] = y_pred
 
-                if predictions:
+                if predictions and plot_model_comparison_timeseries is not None:
                     plot_path = os.path.join(outdir, "timeseries_comparison.png")
                     plot_model_comparison_timeseries(
                         t_eval,
@@ -268,8 +279,9 @@ def main():
                 for n_train, values in sorted(counts.items())
             ]
 
-        plot_path = os.path.join(summary_dir, f"comparison_SNR{snr_db}.png")
-        plot_model_comparison(summary, plot_path)
+        if plot_model_comparison is not None:
+            plot_path = os.path.join(summary_dir, f"comparison_SNR{snr_db}.png")
+            plot_model_comparison(summary, plot_path)
 
     log_path = os.path.join(summary_dir, "comparison_results.json")
     with open(log_path, "w", encoding="utf-8") as fh:
