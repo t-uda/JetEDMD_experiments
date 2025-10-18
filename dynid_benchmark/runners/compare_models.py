@@ -225,10 +225,11 @@ def main():
                     rollout_time = time.perf_counter() - start_rollout
 
                     rmse = float(np.sqrt(np.mean((y_eval - y_pred) ** 2)))
+                    snr_value = None if snr_db is None else float(snr_db)
                     metrics = {
                         "model": mkey,
                         "r": float(r),
-                        "snr_db": float(snr_db),
+                        "snr_db": snr_value,
                         "seed": int(seed),
                         "n_train": int(len(t_train)),
                         "n_eval": int(len(t_eval)),
@@ -280,7 +281,8 @@ def main():
             ]
 
         if plot_model_comparison is not None:
-            plot_path = os.path.join(summary_dir, f"comparison_SNR{snr_db}.png")
+            snr_label = "clean" if snr_db is None else str(snr_db)
+            plot_path = os.path.join(summary_dir, f"comparison_SNR{snr_label}.png")
             plot_model_comparison(summary, plot_path)
 
     log_path = os.path.join(summary_dir, "comparison_results.json")

@@ -66,6 +66,8 @@ PySINDy 用の `envs/pysindy` でも同様に `poetry install` を実行しま�
 - **D 系列**：1 次元 Burgers（D1）、Kuramoto–Sivashinsky（D2）といった PDE の半離散 ODE。空間スペクトルやエネルギー指標で評価します。
 - **E 系列**：Lorenz-63 カオス（E1）、入力付き LTI 系（E2）、Burgers 拡張（E3）、乾燥摩擦コア（E4）など、Core-4 実験を中心とした比較用セット。長期統計や未見入力一般化を重視します。
 
+> 初動検証はすべての YAML で **ノイズ無し（`SNR_dB: null`）** が既定です。順調に動作することを確認した後に、リスト後半の高 SNR → 低 SNR ケースへ段階的に拡張してください。
+
 ## モデルの追加方法
 
 `dynid_benchmark.models.base.Model` を継承し、`@register_model` デコレータでレジストリ登録します。以下は最小例です。

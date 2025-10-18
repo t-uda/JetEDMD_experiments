@@ -30,6 +30,11 @@ This document captures working practices and project-specific context so that co
 - Configuration files reside in `exp/`; adjust runtime parameters there before launching.
 - Results (metrics, rollouts, data) appear under `runs/<exp_id>/<tag>/`; archive or clean up as needed.
 
+### ノイズ設計ポリシー
+- 初動の検証は **ノイズなし（SNR_dB = null）** を既定とし、モデルの健全性を確認してからノイズ付与ケースへ展開する。
+- YAML の `noise.SNR_dB` は `[null, ...]` で始め、必要に応じて高 SNR→低 SNR へ段階的に評価する。
+- ノイズを追加する場合も、意図を実験メモに残し、結果が解釈できるよう逐次記録する。
+
 ## External Libraries / 追加ライブラリ
 - `pykoopman` を既定依存として導入済み。`pykoopman_edmd` / `pykoopman_edmdc` モデルを通じて Koopman 系（EDMD/EDMDc）ベースラインを利用でき、失敗時は `error_pykoopman_*.txt` に詳細が保存される。
 - `pysindy` は Poetry グループ `pysindy` として任意導入。SINDy-PI（`cvxpy` 依存）と PyKoopman は SciPy 要件が異なるため、目的に応じて環境を切り替える。
