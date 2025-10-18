@@ -3,6 +3,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+_STYLE_CYCLE = [
+    ("o", "#1f77b4", "-"),
+    ("s", "#ff7f0e", "--"),
+    ("^", "#2ca02c", "-."),
+    ("D", "#d62728", ":"),
+    ("v", "#9467bd", "-"),
+    ("X", "#8c564b", "--"),
+    ("P", "#e377c2", "-."),
+]
+
+
 def plot_rollout(t, y_true, y_pred, out_png):
     plt.figure()
     for d in range(y_true.shape[1]):
@@ -34,18 +45,40 @@ def plot_psd(y, fs, out_png):
 
 def plot_model_comparison(summary, out_png):
     plt.figure()
-    markers = ["o", "s", "^", "d", "v", "x", "+"]
-    for idx, (model_name, rows) in enumerate(sorted(summary.items())):
-        if not rows:
-            continue
-        n_train = [item["n_train"] for item in rows]
-        mean = [item["rmse_mean"] for item in rows]
-        std = [item["rmse_std"] for item in rows]
-        marker = markers[idx % len(markers)]
-        plt.plot(n_train, mean, marker=marker, label=model_name)
-        lower = np.array(mean) - np.array(std)
-        upper = np.array(mean) + np.array(std)
-        plt.fill_between(n_train, lower, upper, alpha=0.2)
+    valid_items = [(name, rows) for name, rows in sorted(summary.items()) if rows]
+    if not valid_items:
+        plt.close()
+        return
+    for idx, (model_name, rows) in enumerate(valid_items):
+        n_train = np.array([item["n_train"] for item in rows], dtype=float)
+        mean = np.array([item["rmse_mean"] for item in rows], dtype=float)
+        std = np.array([item["rmse_std"] for item in rows], dtype=float)
+        marker, color, linestyle = _STYLE_CYCLE[idx % len(_STYLE_CYCLE)]
+        markevery = max(1, len(n_train) // 6)
+        plt.plot(
+            n_train,
+            mean,
+            marker=marker,
+            color=color,
+            linestyle=linestyle,
+            label=model_name,
+            linewidth=1.5,
+            markersize=6,
+            markerfacecolor="white",
+            markeredgecolor=color,
+            markevery=markevery,
+            zorder=3 + idx,
+        )
+        lower = mean - std
+        upper = mean + std
+        plt.fill_between(
+            n_train,
+            lower,
+            upper,
+            color=color,
+            alpha=0.18,
+            zorder=1 + idx,
+        )
     plt.xlabel("number of training observations")
     plt.ylabel("rollout RMSE")
     plt.title("Model comparison vs data volume")
@@ -64,17 +97,25 @@ def plot_model_comparison_timeseries(t, y_true, predictions, out_png, max_dims=2
     fig, axes = plt.subplots(plot_dims, 1, sharex=True, figsize=(7, 2.5 * plot_dims))
     axes = np.atleast_1d(axes)
 
-    model_names = sorted(predictions.keys())
+    model_items = [(name, predictions[name]) for name in sorted(predictions.keys())]
     for dim in range(plot_dims):
         ax = axes[dim]
         ax.plot(t, y_true[:, dim], label="true", color="k", linewidth=1.5)
-        for name in model_names:
-            series = np.asarray(predictions[name])
+        for idx, (name, values) in enumerate(model_items):
+            series = np.asarray(values)
             if series.ndim == 1:
                 series = series[:, None]
             if series.shape[1] <= dim:
                 continue
-            ax.plot(t, series[:, dim], label=name)
+            marker, color, linestyle = _STYLE_CYCLE[idx % len(_STYLE_CYCLE)]
+            ax.plot(
+                t,
+                series[:, dim],
+                label=name,
+                color=color,
+                linestyle=linestyle,
+                linewidth=1.3,
+            )
         ax.set_ylabel(f"state[{dim}]")
         if dim == 0:
             ax.legend(loc="best")
