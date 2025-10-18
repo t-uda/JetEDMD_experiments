@@ -24,6 +24,7 @@
 - `metrics_<model>.json`: モデル別メトリクス（学習点数，RMSE，計算時間を含む）。
 - `comparison_results.json`: すべての条件をまとめたリスト形式のログ。
 - `comparison_SNR<value>.png`: 学習点数と RMSE の関係をモデルごとに比較した図。平均値 ± 標準偏差の帯を描画します。
+- `timeseries_comparison.png`: 各条件ごとに生成される真値 vs. 予測の重ね合わせ図。状態次元が高い場合は先頭 `--plot_dims` 次元のみを射影して表示します（デフォルト2次元）。
 
 ## 今後の拡張案
 - `--train_fractions` など，分割後の訓練系列をさらにサブサンプリングしてデータ量を細かく制御するオプション。

@@ -1,0 +1,11 @@
+# C1-short: 強制ダフィング振子（短時間ホライゾン評価）
+system: duffing_forced
+params: {delta: 0.15, alpha: -1.0, beta: 1.0, gamma: 0.3, Omega: 1.2}
+dt_true: 5.0e-4
+Tfast: 0.2
+r_list: [0.02, 0.05, 0.1, 0.2]
+noise: {SNR_dB: [45], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.55, val: 0.15, test: 0.3}
+seeds: [301]
+metrics: [rollout_rmse]

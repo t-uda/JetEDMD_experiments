@@ -1,0 +1,11 @@
+# B1-short: OU（短時間ホライゾン評価）
+system: ou
+params: {theta: 1.0}
+dt_true: 1.0e-3
+Tfast: 1.0
+r_list: [0.05, 0.1, 0.2, 0.4]
+noise: {SNR_dB: [50], outlier_rate: 0.0}
+sampling: {jitter_pct: 0.0, missing_pct: 0.0}
+splits: {train: 0.5, val: 0.1, test: 0.4}
+seeds: [201]
+metrics: [rollout_rmse]

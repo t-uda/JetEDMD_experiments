@@ -53,3 +53,33 @@ def plot_model_comparison(summary, out_png):
     plt.legend()
     plt.savefig(out_png)
     plt.close()
+
+
+def plot_model_comparison_timeseries(t, y_true, predictions, out_png, max_dims=2):
+    y_true = np.asarray(y_true)
+    if y_true.ndim == 1:
+        y_true = y_true[:, None]
+
+    plot_dims = max(1, min(int(max_dims), y_true.shape[1]))
+    fig, axes = plt.subplots(plot_dims, 1, sharex=True, figsize=(7, 2.5 * plot_dims))
+    axes = np.atleast_1d(axes)
+
+    model_names = sorted(predictions.keys())
+    for dim in range(plot_dims):
+        ax = axes[dim]
+        ax.plot(t, y_true[:, dim], label="true", color="k", linewidth=1.5)
+        for name in model_names:
+            series = np.asarray(predictions[name])
+            if series.ndim == 1:
+                series = series[:, None]
+            if series.shape[1] <= dim:
+                continue
+            ax.plot(t, series[:, dim], label=name)
+        ax.set_ylabel(f"state[{dim}]")
+        if dim == 0:
+            ax.legend(loc="best")
+
+    axes[-1].set_xlabel("t")
+    fig.tight_layout()
+    fig.savefig(out_png)
+    plt.close(fig)

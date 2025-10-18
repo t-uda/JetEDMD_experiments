@@ -9,7 +9,7 @@ import numpy as np
 from ..config import load_yaml
 from ..evaluation.metrics import save_metrics
 from ..io.dataset import split_traj
-from ..io.viz import plot_model_comparison
+from ..io.viz import plot_model_comparison, plot_model_comparison_timeseries
 from ..models import ensure_models_imported
 from ..models.base import MODEL_REGISTRY
 from ..systems.a1_dry_friction import DryFrictionOscillator
@@ -92,6 +92,12 @@ def main():
         type=float,
         help="Limit rollout evaluation to this duration (seconds) from the start of the test split",
     )
+    ap.add_argument(
+        "--plot_dims",
+        default=2,
+        type=int,
+        help="Number of leading state dimensions to plot in the time-series comparison",
+    )
     args = ap.parse_args()
 
     cfg = load_yaml(args.config)
@@ -129,7 +135,7 @@ def main():
                 outdir = os.path.join(args.outdir, tag_root, tag)
                 os.makedirs(outdir, exist_ok=True)
 
-                true, obs = _prepare_observations(
+                _, obs = _prepare_observations(
                     cfg.system,
                     cfg,
                     total_T,
@@ -157,6 +163,12 @@ def main():
                 y_eval = y_test[eval_slice]
                 u_eval = u_test[eval_slice] if u_test is not None else None
 
+                if len(t_eval) == 0:
+                    print(
+                        f"[WARN] evaluation horizon empty for r={r}, SNR={snr_db}, seed={seed}; skipped"
+                    )
+                    continue
+
                 np.savez(
                     os.path.join(outdir, "data_train.npz"),
                     t=t_train,
@@ -169,6 +181,8 @@ def main():
                     y=y_eval,
                     u=u_eval if u_eval is not None else [],
                 )
+
+                predictions = {}
 
                 for mkey in args.models.split(","):
                     mkey = mkey.strip()
@@ -213,6 +227,17 @@ def main():
                     }
                     save_metrics(os.path.join(outdir, f"metrics_{mkey}.json"), metrics)
                     results.append(metrics)
+                    predictions[mkey] = y_pred
+
+                if predictions:
+                    plot_path = os.path.join(outdir, "timeseries_comparison.png")
+                    plot_model_comparison_timeseries(
+                        t_eval,
+                        y_eval,
+                        predictions,
+                        plot_path,
+                        max_dims=max(1, args.plot_dims),
+                    )
 
     if not results:
         print("[WARN] no successful model runs recorded; skipping aggregation")
