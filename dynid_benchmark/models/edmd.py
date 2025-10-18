@@ -32,10 +32,20 @@ class EDMD(Model):
 
     name = "edmd"
 
-    def __init__(self, order=2, ridge=1e-6):
+    def __init__(
+        self,
+        order=2,
+        ridge=0.0,
+        solver: str = "svd",
+        svd_tol: float = 1e-12,
+        svd_rank: int | None = None,
+    ):
         super().__init__(order=order, ridge=ridge)
         self.order = order
         self.ridge = ridge
+        self.solver = solver
+        self.svd_tol = svd_tol
+        self.svd_rank = svd_rank
         self.K = None
         self.C = None
         self._phi = None
@@ -46,13 +56,37 @@ class EDMD(Model):
         Xp = y[1:, :]
         Z, _ = poly_lift(X, order=self.order)
         Zp, _ = poly_lift(Xp, order=self.order)
-        # Z K ≈ Zp をリッジ回帰で解きコーシャン演算子 K を求める
-        lam = self.ridge
-        self.K = np.linalg.lstsq(
-            Z.T @ Z + lam * np.eye(Z.shape[1]), Z.T @ Zp, rcond=None
-        )[0]
-        # 復元写像 C を最小二乗で計算し、リフト空間から元の状態に戻す
-        self.C = np.linalg.lstsq(Z, X, rcond=None)[0]
+        # コーシャン演算子 K を求める（条件に応じて解法を切替）
+        lam = float(self.ridge)
+        solver = self.solver
+        if solver not in {"auto", "normal", "svd"}:
+            raise ValueError("solver must be 'auto', 'normal', or 'svd'")
+
+        use_svd = solver == "svd" or (solver == "auto" and lam == 0.0)
+        if use_svd:
+            U, S, Vt = np.linalg.svd(Z, full_matrices=False)
+            if self.svd_rank is not None:
+                rank = min(self.svd_rank, len(S))
+            else:
+                thresh = self.svd_tol * S[0] if len(S) else 0.0
+                rank = int(np.sum(S > thresh))
+                if rank == 0 and len(S):
+                    rank = 1
+            U_r = U[:, :rank]
+            S_r = S[:rank]
+            Vt_r = Vt[:rank, :]
+            if lam > 0.0:
+                # リッジありの場合は S/(S^2 + lam) の縮小係数を適用
+                shrink = S_r / (S_r**2 + lam)
+            else:
+                shrink = 1.0 / S_r
+            Z_pinv = (Vt_r.T * shrink) @ U_r.T
+            self.K = Z_pinv @ Zp
+            self.C = Z_pinv @ X
+        else:
+            I = np.eye(Z.shape[1])
+            self.K = np.linalg.lstsq(Z.T @ Z + lam * I, Z.T @ Zp, rcond=None)[0]
+            self.C = np.linalg.lstsq(Z, X, rcond=None)[0]
         self._phi = lambda x: poly_lift(x[None, :], order=self.order)[0][0]
 
     def predict_derivative(self, t, x, u=None):
