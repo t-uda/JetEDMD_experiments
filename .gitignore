@@ -1,3 +1,5 @@
+.serena/
+
 .DS_Store
 .matplotlib_cache/
 runs*/
